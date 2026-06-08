@@ -31,6 +31,15 @@ const C = {
 // ---- Fixed (non-dialed) percentages --------------------------------------
 const BRINE_WATER = 5;   // salamoia — poured into the dimples
 const BRINE_OIL = 5;     // salamoia oil
+const BRINE_SALT = 0.8;  // fine salt dissolved into the salamoia
+
+// Yeast forms and their dosing relative to instant (IDY). Instant is added dry;
+// the others are bloomed/dissolved in some of the water first.
+const YEAST_TYPES = {
+  instant: { label: "Instant yeast (IDY)", factor: 1, note: "added dry, straight into the flour" },
+  active:  { label: "Active dry yeast", factor: 1.25, note: "bloom 5–10 min in a little warm water first" },
+  fresh:   { label: "Fresh (cake) yeast", factor: 3, note: "crumble & dissolve in the water first" },
+};
 
 // ---- Fermentation schedules: the "tang / yeastiness" axis -----------------
 // Longer + colder = more organic acids and aroma, and less yeast needed
@@ -147,51 +156,59 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // ---------------------------------------------------------------------------
 // Process generator — steps adapt to schedule, lamination count, hydration
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, twoPans, yeastType }) {
   const express = schIdx === 0;
+  const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
+  const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
+  const bloom = yeastType === "instant"
+    ? ""
+    : ` You're on ${yt.label.toLowerCase()}, so first ${yt.note} (take it from the recipe water) until it's foamy — then carry on.`;
   const oilNote = doughOilPct > 0
-    ? ` Once the dough is cohesive, drizzle in the ${round(doughOilPct, 1)}% dough oil and mix until it's fully absorbed and glossy again — adding it now, after the gluten has formed, keeps the oil from coating the proteins and blunting development.`
+    ? ` Once the dough is cohesive, drizzle in the ${round(doughOilPct, 1)}% dough oil and mix until it's fully absorbed and glossy again — adding it after the gluten has formed keeps the oil from coating the proteins and blunting development.`
     : "";
-  const handling = hydration >= 84 ? "very slack and glossy — wet hands"
+  const handling = hydration >= 84 ? "very slack and glossy — work it with wet hands"
     : hydration >= 76 ? "slack but cohesive" : "supple and easy to handle";
-  const foldPhrase = folds === 0
-    ? "2 plain stretch-&-folds for strength"
-    : `${folds} stretch-&-fold${folds > 1 ? "s" : ""}, oil drizzled before each`;
+  const hot = panOilPct >= 10;
+  const tomato = twoPans ? " On the tomato pan, press halved cherry tomatoes cut-side up into the wells now so they roast in the oil rather than steam; scatter olives too if you like." : "";
 
   const steps = [];
 
   if (express) {
-    steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F) + yeast (${sch.yeast}%) + sugar · rest 20 min · then salt`,
-      why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min: the flour fully hydrates (free extensibility), and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and blunts the fast start you need here.` });
-    steps.push({ title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
-      why: `Build a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}. Warm dough develops quickly; stop when glossy and clearing the bowl, before it overheats past ~78°F.${oilNote}` });
-    steps.push({ title: "Warm bulk + folds — the 1 hr rise", spec: `${sch.temp} · ${foldPhrase} at 20 & 40 min`,
-      why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."} Not puffy at the hour? Give it 15–20 min more — readiness rules, not the clock.` });
+    steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F / 35–38°C) + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar · rest 20 min · then salt`,
+      why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here.${bloom} Aim to finish the dough around ${ddt} — warm, so it drives.` });
+    steps.push({ title: "Mix & develop", spec: `dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
+      why: `Add the salt now, then develop a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}. Warm dough develops quickly, so watch the temperature: glossy and clearing the bowl, not over-beaten past ~28°C/82°F.${oilNote}` });
+    steps.push({ title: "Warm bulk + oiled folds — the 1 hr rise", spec: `${sch.temp} · ${folds > 0 ? `${folds} oiled letter-fold${folds > 1 ? "s" : ""}` : "2 plain folds"} at 20 & 40 min · keep it covered`,
+      why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. Keep the bowl covered between folds so the surface doesn't skin. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."} Pull it when it's puffy and jiggly with a bubble or two showing — readiness rules, not the clock; give it 15–20 min more if it's sluggish.` });
   } else {
-    steps.push({ title: "Autolyse", spec: "ALL flour + all dough water · rest 30–45 min · then yeast + salt",
-      why: `Mix flour and water to a shaggy mass and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Hold yeast and salt: salt tightens gluten and slows the enzymes; yeast would ferment before you've built structure.` });
-    steps.push({ title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
-      why: `A moderate, well-organized gluten matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it should pull off the hook ${handling}. Stop when cohesive and clearing the walls, not bone-dry.${oilNote}` });
-    steps.push({ title: "Strength folds", spec: "3–4 sets · 30 min apart, during the warm start",
-      why: `Folding builds strength in layers without overworking. Each set re-tensions the gluten and redistributes gas and yeast food, turning a slack puddle into a structured mass that survives the long cold ferment and still holds deep dimples.` });
-    steps.push({ title: `Cold fermentation`, spec: `${sch.cold} in the fridge · ${sch.name}`,
-      why: `The cold retard is where flavour and texture are won (Cauvain, Ch.2: fermentation drives bread flavour). Slow, cold fermentation builds organic acids and complex aroma — ${sch.tang} — while the gluten relaxes into a uniform, extensible, lamination-ready dough.` });
+    steps.push({ title: "Autolyse", spec: "ALL flour + all dough water · mix to shaggy · cover · rest 30–45 min",
+      why: `Mix flour and water to a shaggy mass with no dry flour, cover, and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Cover it so the top can't dry. Hold yeast and salt for now.${bloom}` });
+    steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}`,
+      why: `Work in the yeast first, then the salt (added last so it doesn't fight the yeast or over-tighten early). Build a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry. Finishing near ${ddt} sets a controlled cold ferment.${oilNote}` });
+    steps.push({ title: "Bulk start + strength folds", spec: "3–4 coil/letter folds · 30 min apart · ~2 hr warm, covered",
+      why: `With wet hands, fold every 30 min over the first couple of warm hours, keeping the bowl covered between sets. Each fold re-tensions the gluten and redistributes gas and yeast food, turning a slack puddle into a structured mass. Build it to roughly 30–50% risen before it goes cold — enough life to carry the long retard.` });
+    steps.push({ title: "Cold fermentation", spec: `cover airtight · ${sch.cold} in the fridge · ${sch.name}`,
+      why: `The cold retard is where flavour and texture are won (Cauvain, Ch.2: fermentation drives bread flavour). Slow, cold fermentation builds organic acids and complex aroma — ${sch.tang} — while the gluten relaxes into a uniform, extensible, lamination-ready dough. Cover it airtight: cold fridge air skins the surface and the dough picks up off-flavours otherwise.` });
     if (folds > 0) {
       steps.push({ title: "Laminate — the flaky trick", spec: `stretch thin · drizzle oil · letter-fold ×${folds} · rest 15 between`,
-        why: `After the cold ferment, stretch to a rectangle, drizzle oil, and letter-fold ${folds} time${folds > 1 ? "s" : ""}. The thin oil films become internal partitions that shred and tear when baked — light lamination, not croissant layers, just enough for a dramatic flaky pull. The 15-min rests let gluten relax so you can re-stretch without tearing.` });
+        why: `Straight from the fridge (cold dough stretches thinnest without tearing), gently stretch to a large rectangle, drizzle oil, and letter-fold ${folds} time${folds > 1 ? "s" : ""}. The thin oil films become internal partitions that shred and tear when baked — light lamination, not croissant layers, just enough for a dramatic flaky pull. The 15-min covered rests let the gluten relax so you can re-stretch.` });
     }
   }
 
-  steps.push({ title: express ? "Pan + final proof — the 1 hr proof" : "Pan proof + final proof",
-    spec: `dark metal pan · all the pan oil (${panOilPct}%) · ${sch.proof} · proof until bubbly & jiggly`,
-    why: `Flood a dark metal pan with all the pan oil — the dough essentially shallow-fries from below into a crisp shell. Let it relax and spread on its own (don't force the corners cold, it'll spring back and tear). Proof until visibly alive — domed, blistered, wobbling. Err slightly past full proof; under-proofed focaccia bakes dense and tight.` });
+  steps.push({ title: "Pan it · let it relax", spec: `dark metal pan · all the pan oil (${panOilPct}%) · ease toward the corners, don't force`,
+    why: `Flood a dark metal pan (it absorbs heat hard and fries the base into a crisp shell — glass or shiny pans won't) with all the pan oil, and turn the dough in to coat top and bottom. Don't fight it into the corners while it's tight or cold — let it relax 20–30 min and spread on its own, then coax it out; forced now, it springs back and tears.` });
 
-  steps.push({ title: "Dimple + brine", spec: "oil fingers · press nearly to the pan bottom · spoon brine into the wells",
-    why: `Drive oiled fingers straight down almost to the pan. Aggressive dimples make the lunar-landscape surface and set high ridges that crunch against soft valleys. Whisk the brine (water + oil + salt) and spoon it so it pools in the wells — the water steams off and concentrates salt and oil into crisp, seasoned, caramelized pockets. Shy dimples bake out and won't hold brine; commit.` });
+  steps.push({ title: "Final proof — covered", spec: `${sch.proof} · proof until very bubbly, domed & jiggly · cover, no skin`,
+    why: `Proof until visibly alive — domed, blistered, wobbling when nudged, a slow-springing poke. Keep it covered so the surface can't skin over: a dry skin resists your dimples, blunts oven spring and bakes leathery (Cauvain, Ch.4/5: prevent skinning; provers run high humidity). The pan oil films the top and buys you slack, but once it's puffy use a cover that doesn't touch the dough — an inverted tub, box or second pan — so it won't stick and deflate the bubbles. Err slightly past full proof; under-proofed focaccia bakes dense and tight.` });
 
-  const hot = panOilPct >= 10;
-  steps.push({ title: "Bake", spec: `500°F / 260°C · 8 min  →  450°F / 232°C · ${hot ? "13–16" : "12–15"} min`,
-    why: `The initial blast maximizes oven spring and sears the oiled base while the crust sets fast; controlled, uniform spring is the goal (Cauvain, Ch.1). Drop to 450°F to finish the interior and deepen colour without scorching the oil${hot ? " — at this much pan oil, watch the base and pull the moment it's mahogany, not past it" : ""}. ${semolina ? "The semolina pushes the crust toward a sandy, fracturing crunch. " : ""}Pull it deep golden-brown, edges crackling.` });
+  steps.push({ title: "Dimple + brine + toppings", spec: `oil fingers · press nearly to the pan bottom · brine (≈1:1 water:oil + ${BRINE_SALT}% salt) into the wells`,
+    why: `Oil your fingers and drive them straight down almost to the pan — aggressive dimples make the lunar-landscape surface and set high ridges that crunch against soft valleys (shy dimples just bake out). Whisk the salamoia — roughly equal parts water and oil with the fine salt dissolved in — and spoon it so it pools in the wells; the water steams off and concentrates salt and oil into crisp, seasoned pockets.${tomato} Add hardy herbs like rosemary now but press them in and oil them so they don't scorch; finish with flaky salt.` });
+
+  steps.push({ title: "Bake — hot, dry, low rack", spec: `fully preheated · lower third (or on a steel) · 500°F/260°C · 8 min → 450°F/232°C · ${hot ? "13–16" : "12–15"} min`,
+    why: `Bake in a fully preheated oven on a low rack — or straight onto a preheated steel/stone — to drive the base. The opening blast maximizes oven spring and sears the oiled bottom while the crust sets; controlled, uniform spring is the goal (Cauvain, Ch.1). No steam here — focaccia wants a crisp, fried surface, not a lean crackly crust. Drop to 450°F to finish the inside and deepen colour without scorching the oil${hot ? "; at this much pan oil, watch the base and pull the moment it's mahogany" : ""}. Rotate halfway for even colour.${semolina ? " The semolina pushes the crust toward a sandy, fracturing crunch." : ""} Done at deep golden-brown with crackling edges — about 96–99°C / 205–210°F inside.` });
+
+  steps.push({ title: "Cool — out of the pan", spec: "lift onto a wire rack within a few minutes · rest ~10 min · serve warm",
+    why: `This is the step most people skip and regret: get it out of the pan and onto a rack within a couple of minutes. Left sitting in the hot pan, steam condenses under the loaf and the crisp, fried base you just built turns soft and soggy. A wire rack lets air circulate so the bottom stays shatter-crisp. Rest ~10 minutes so the crumb sets, then eat it warm — focaccia is best the day it's baked.` });
 
   return steps.map((s, i) => ({ ...s, n: String(i + 1).padStart(2, "0") }));
 }
@@ -211,6 +228,7 @@ export default function FocacciaBuildSheet() {
   const [semolinaPct, setSemolinaPct] = useState(D0.semolinaPct); // %  crust fracture
   // options
   const [twoPans, setTwoPans] = useState(D0.twoPans);
+  const [yeastType, setYeastType] = useState("instant");
   const [openStep, setOpenStep] = useState("01");
 
   function applyStyle(id) {
@@ -232,7 +250,9 @@ export default function FocacciaBuildSheet() {
     const breadFlour = f - sem;
     const water = f * (hydration / 100);
     const salt = f * (saltPct / 100);
-    const yeast = f * (sch.yeast / 100);
+    const yFactor = (YEAST_TYPES[yeastType] || YEAST_TYPES.instant).factor;
+    const yeastPctEff = sch.yeast * yFactor;
+    const yeast = f * (yeastPctEff / 100);
     const sugar = f * (sch.sugar / 100);
     const panOil = f * (panOilPct / 100);
     const doughOil = f * (doughOilPct / 100);
@@ -240,10 +260,11 @@ export default function FocacciaBuildSheet() {
     const foldOil = f * (foldOilPct / 100);
     const brineWater = f * (BRINE_WATER / 100);
     const brineOil = f * (BRINE_OIL / 100);
+    const brineSalt = f * (BRINE_SALT / 100);
     const doughWeight = f + water + salt + yeast + sugar + doughOil;
     const totalOil = panOil + doughOil + foldOil + brineOil;
-    return { sem, breadFlour, water, salt, yeast, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, doughWeight, totalOil };
-  }, [f, hydration, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch]);
+    return { sem, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
+  }, [f, hydration, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType]);
 
   const groups = [
     { title: "Dough", items: [
@@ -251,7 +272,8 @@ export default function FocacciaBuildSheet() {
       ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
       { k: express ? "Water — warm, 95–100°F" : "Water", g: round(v.water), pct: hydration },
       { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) },
-      { k: "Instant yeast", g: round(v.yeast, 2), pct: sch.yeast, accent: express, note: express ? "bumped for the short clock" : "low — the ferment does the work" },
+      { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express,
+        note: yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note },
       ...(v.sugar > 0 ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" }] : []),
       { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1),
         note: doughOilPct === 0 ? "none — Ligurian-style, oil stays outside the dough" : "softens crumb · tenderises gluten · added after mixing" },
@@ -264,13 +286,14 @@ export default function FocacciaBuildSheet() {
     { title: "Brine — salamoia", caption: "whisk together, spoon into the dimples right before baking", brine: true, items: [
       { k: "Water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
       { k: "Olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
+      { k: "Fine salt — dissolved in", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true, note: "whisk in until it disappears" },
       { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
     ] },
   ];
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0 }),
-    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct]);
+  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, twoPans, yeastType }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, twoPans, yeastType]);
 
   // live texture/flavour profile chips
   const profile = [
@@ -385,6 +408,22 @@ export default function FocacciaBuildSheet() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 12 }}>
+          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "11px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>Yeast form</span>
+              <div style={{ display: "flex", gap: 4, background: C.paperDeep, borderRadius: 9, padding: 4 }}>
+                {[["instant", "Instant"], ["active", "Active dry"], ["fresh", "Fresh"]].map(([id, label]) => {
+                  const on = yeastType === id;
+                  return (
+                    <button key={id} onClick={() => setYeastType(id)} style={{ border: "none", borderRadius: 7, padding: "6px 11px", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 600, background: on ? C.olive : "transparent", color: on ? C.paper : C.inkSoft, transition: "all .15s ease" }}>{label}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: C.inkSoft, fontFamily: "'IBM Plex Mono', monospace", marginTop: 7 }}>
+              {round(v.yeast, 2)}g · {round(v.yeastPctEff, 2)}% — {YEAST_TYPES[yeastType].note}
+            </div>
+          </div>
           <Toggle on={twoPans} onClick={() => setTwoPans((s) => !s)} label="Split into 2 pans" sub="e.g. cherry-tomato + plain" />
         </div>
 
