@@ -11,6 +11,11 @@
 .cache/
 data/raw/
 
+# --- Node / Vite ---
+node_modules/
+dist/
+.vite/
+
 # --- Python ---
 __pycache__/
 *.py[cod]
