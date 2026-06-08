@@ -52,6 +52,35 @@ const SCHEDULES = [
 
 const FLAKE_LABELS = ["Pillowy", "Faint shred", "Light flake", "Shreddy", "Max flake"];
 
+// ---- Styles: curated presets that drive every dial at once -----------------
+// Focaccia traditions (not in the science corpus — these are baking-tradition
+// knowledge). Each `set` fully defines the dashboard; pick one, then fine-tune.
+const STYLES = [
+  { id: "flaky", name: "Flaky (hot-rod)", tag: "laminated · fried",
+    blurb: "The house build: a 3-day cold ferment, oiled lamination folds for a shreddy pull, and a deep pan-fry. Dough kept lean so the fat works the layers and the base, not the crumb.",
+    set: { hydration: 82, schIdx: 3, folds: 3, panOilPct: 10, doughOilPct: 0, saltPct: 2.4, semolinaPct: 5, twoPans: true } },
+  { id: "genovese", name: "Genovese", tag: "classic Ligurian",
+    blurb: "The archetype. Thinner and oily, with ~6% oil worked into a tender crumb and a briny salamoia pooled in the dimples. Pillowy, not flaky; made same-day.",
+    set: { hydration: 72, schIdx: 0, folds: 0, panOilPct: 9, doughOilPct: 6, saltPct: 2.0, semolinaPct: 0, twoPans: false } },
+  { id: "romana", name: "Romana alla pala", tag: "light · airy",
+    blurb: "Long, cold-fermented and very wet — a tall, wildly open, custardy crumb with a crisp, blistered top. Lean and restrained; the ferment does the flavour.",
+    set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 7, doughOilPct: 3, saltPct: 2.4, semolinaPct: 5, twoPans: false } },
+  { id: "barese", name: "Pugliese · Barese", tag: "semola · tomato",
+    blurb: "Durum-semolina dough (golden, sandy crust), high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf.",
+    set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 4, saltPct: 2.2, semolinaPct: 15, twoPans: true } },
+  { id: "sameday", name: "Same-day", tag: "weeknight",
+    blurb: "Two hours, start to bake. Balanced and lightly enriched, leaning on warmth and a touch more yeast — no long ferment, no fuss.",
+    set: { hydration: 78, schIdx: 0, folds: 1, panOilPct: 8, doughOilPct: 4, saltPct: 2.3, semolinaPct: 0, twoPans: false } },
+];
+const STYLE_BY_ID = Object.fromEntries(STYLES.map((s) => [s.id, s]));
+const DEFAULT_STYLE = "flaky";
+const STYLE_KEYS = ["hydration", "schIdx", "folds", "panOilPct", "doughOilPct", "saltPct", "semolinaPct", "twoPans"];
+
+function matchStyle(cur) {
+  const hit = STYLES.find((s) => STYLE_KEYS.every((k) => s.set[k] === cur[k]));
+  return hit ? hit.id : "custom";
+}
+
 function round(n, dp = 0) {
   const f = Math.pow(10, dp);
   return Math.round(n * f) / f;
@@ -169,19 +198,30 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
 
 // ---------------------------------------------------------------------------
 export default function FocacciaBuildSheet() {
+  const D0 = STYLE_BY_ID[DEFAULT_STYLE].set;
   // master scale
   const [flour, setFlour] = useState(500);
-  // quality dials
-  const [hydration, setHydration] = useState(80);   // %  open ↔ tight crumb
-  const [schIdx, setSchIdx] = useState(0);           // 0–3 ferment / tang
-  const [folds, setFolds] = useState(2);             // 0–4 flakiness
-  const [panOilPct, setPanOilPct] = useState(8);     // %  fried base
-  const [doughOilPct, setDoughOilPct] = useState(5); // %  EVOO worked into the dough
-  const [saltPct, setSaltPct] = useState(2.4);       // %  seasoning + structure
-  const [semolinaPct, setSemolinaPct] = useState(5); // %  crust fracture
+  // quality dials (initialised from the default style)
+  const [hydration, setHydration] = useState(D0.hydration);   // %  open ↔ tight crumb
+  const [schIdx, setSchIdx] = useState(D0.schIdx);             // 0–3 ferment / tang
+  const [folds, setFolds] = useState(D0.folds);               // 0–4 flakiness
+  const [panOilPct, setPanOilPct] = useState(D0.panOilPct);   // %  fried base
+  const [doughOilPct, setDoughOilPct] = useState(D0.doughOilPct); // %  EVOO in the dough
+  const [saltPct, setSaltPct] = useState(D0.saltPct);         // %  seasoning + structure
+  const [semolinaPct, setSemolinaPct] = useState(D0.semolinaPct); // %  crust fracture
   // options
-  const [twoPans, setTwoPans] = useState(true);
+  const [twoPans, setTwoPans] = useState(D0.twoPans);
   const [openStep, setOpenStep] = useState("01");
+
+  function applyStyle(id) {
+    const s = STYLE_BY_ID[id];
+    if (!s) return;
+    const k = s.set;
+    setHydration(k.hydration); setSchIdx(k.schIdx); setFolds(k.folds);
+    setPanOilPct(k.panOilPct); setDoughOilPct(k.doughOilPct);
+    setSaltPct(k.saltPct); setSemolinaPct(k.semolinaPct); setTwoPans(k.twoPans);
+  }
+  const activeStyle = matchStyle({ hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans });
 
   const f = Math.max(0, Number(flour) || 0);
   const sch = SCHEDULES[schIdx];
@@ -257,7 +297,40 @@ export default function FocacciaBuildSheet() {
             <h1 style={{ margin: "4px 0 0", fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Build Your Focaccia</h1>
           </div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, textAlign: "right", color: C.inkSoft, lineHeight: 1.5 }}>
-            {hydration}% hydration<br />{sch.clock} · {sch.name.toLowerCase()}
+            <span style={{ color: C.rust, fontWeight: 600 }}>{activeStyle === "custom" ? "Custom build" : STYLE_BY_ID[activeStyle].name}</span><br />
+            {hydration}% hydration · {sch.clock}
+          </div>
+        </div>
+
+        {/* Style selector */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "2px 2px 10px" }}>
+            <span>What are we making?</span>
+            <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{activeStyle === "custom" ? "custom · off-preset" : "tap to preset every dial"}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+            {STYLES.map((s) => {
+              const on = activeStyle === s.id;
+              return (
+                <button key={s.id} onClick={() => applyStyle(s.id)} style={{
+                  display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
+                  borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
+                  border: `1.5px solid ${on ? C.olive : C.line}`, background: on ? C.olive : C.card, color: on ? C.paper : C.ink }}>
+                  <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.paper : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
+                    {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.paper }} />}
+                  </span>
+                  <span style={{ lineHeight: 1.25 }}>
+                    <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{s.name}</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, opacity: 0.8 }}>{s.tag}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${activeStyle === "custom" ? C.line : C.crust}`, paddingLeft: 12 }}>
+            {activeStyle === "custom"
+              ? "Custom — you've tuned the dials off any single tradition. Pick a style above to snap back to a preset."
+              : STYLE_BY_ID[activeStyle].blurb}
           </div>
         </div>
 
