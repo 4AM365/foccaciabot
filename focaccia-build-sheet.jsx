@@ -1,16 +1,14 @@
 import React, { useState, useMemo } from "react";
 
-// ---- Baker's percentages (relative to total flour = 100%) ----
-const BP = {
-  water: 85,   // dough hydration
-  salt: 2.4,   // dough salt
-};
-const YEAST = { long: 0.6, express: 2.0 };
-const SUGAR_EXPRESS = 0.5;
-const SEMOLINA_PCT = 5;
-const FOLD_OIL = 2;      // drizzled between folds (lamination)
-const BRINE_WATER = 5;   // salamoia — poured into the dimples
-const BRINE_OIL = 5;     // salamoia oil
+// ============================================================================
+// Focaccia Dashboard — drive the *qualities* (open crumb, tang, flake, fried
+// crust…); the recipe and process regenerate live. Baker's percentages are all
+// relative to total flour = 100%.
+//
+// The science behind each dial is drawn from the repo's reference corpus
+// (Cauvain & Young, Technology of Breadmaking; McGee, On Food and Cooking;
+// Bressanini, La scienza della pasticceria) — see data/chunks.jsonl.
+// ============================================================================
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,800;9..144,900&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -30,28 +28,49 @@ const C = {
   card: "#fbf6ec",
 };
 
+// ---- Fixed (non-dialed) percentages --------------------------------------
+const BRINE_WATER = 5;   // salamoia — poured into the dimples
+const BRINE_OIL = 5;     // salamoia oil
+
+// ---- Fermentation schedules: the "tang / yeastiness" axis -----------------
+// Longer + colder = more organic acids and aroma, and less yeast needed
+// because it works longer (Cauvain, Ch.2: fermentation → bread flavour).
+const SCHEDULES = [
+  { name: "Same-day", clock: "~2.5 hr", yeast: 2.0, sugar: 0.5,
+    tang: "clean & fresh-yeasty", temp: "warm 80–85°F / 27–29°C",
+    bulk: "1 hr warm", cold: null, proof: "~1 hr warm" },
+  { name: "Overnight", clock: "~16 hr", yeast: 1.0, sugar: 0,
+    tang: "gently sour", temp: "1 hr warm, then cold",
+    bulk: "1 hr warm → fridge", cold: "12–16 hr", proof: "1–1.5 hr from cold" },
+  { name: "Two-day cold", clock: "~48 hr", yeast: 0.6, sugar: 0,
+    tang: "pronounced tang", temp: "fridge ferment",
+    bulk: "30 min warm → fridge", cold: "36–48 hr", proof: "1.5–2 hr from cold" },
+  { name: "Three-day cold", clock: "~72 hr", yeast: 0.4, sugar: 0,
+    tang: "deep, sour-edged", temp: "fridge ferment",
+    bulk: "30 min warm → fridge", cold: "60–72 hr", proof: "~2 hr from cold" },
+];
+
+const FLAKE_LABELS = ["Pillowy", "Faint shred", "Light flake", "Shreddy", "Max flake"];
+
 function round(n, dp = 0) {
   const f = Math.pow(10, dp);
   return Math.round(n * f) / f;
 }
 
-function Num({ children }) {
-  return (
-    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{children}</span>
-  );
+// ---------------------------------------------------------------------------
+// Components
+// ---------------------------------------------------------------------------
+function Num({ children, color }) {
+  return <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color }}>{children}</span>;
 }
 
 function Toggle({ on, onClick, label, sub }) {
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
-        background: on ? C.olive : "transparent", color: on ? C.paper : C.ink,
-        border: `1.5px solid ${on ? C.olive : C.line}`, borderRadius: 10, padding: "12px 14px",
-        cursor: "pointer", transition: "all .18s ease", fontFamily: "'Fraunces', serif",
-      }}
-    >
+    <button onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+      background: on ? C.olive : "transparent", color: on ? C.paper : C.ink,
+      border: `1.5px solid ${on ? C.olive : C.line}`, borderRadius: 10, padding: "12px 14px",
+      cursor: "pointer", transition: "all .18s ease", fontFamily: "'Fraunces', serif" }}>
       <span style={{ width: 34, height: 20, borderRadius: 20, background: on ? C.paper : C.line, position: "relative", flexShrink: 0, transition: "background .18s ease" }}>
         <span style={{ position: "absolute", top: 2, left: on ? 16 : 2, width: 16, height: 16, borderRadius: "50%", background: on ? C.olive : C.card, transition: "left .18s ease" }} />
       </span>
@@ -63,104 +82,158 @@ function Toggle({ on, onClick, label, sub }) {
   );
 }
 
-const STEPS_LONG = [
-  { n: "01", title: "Autolyse", spec: "ALL flour + all dough water · rest 30–45 min · then add yeast + salt",
-    why: "Mix all the flour with all the dough water to a shaggy mass and walk away. Every bit of flour hydrates fully, and the flour's own enzymes start cleaving and re-linking gluten on their own — you get extensibility and structure for free, and need far less mixing afterward. Hold the yeast and salt until after the rest: salt tightens gluten and slows the enzymes, and yeast would start fermenting before you've built structure. (Holding back half the flour would only autolyse half of it and force more mixing on the rest — no upside unless you're actually building a yeasted preferment.)" },
-  { n: "02", title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
-    why: "You want a moderate, well-organized gluten matrix — not max strength. Enough structure to trap gas and hold the lamination layers, but loose enough to stay extensible. At 85% hydration the dough should pull off the hook in a slack, glossy sheet. Stop when it's cohesive and starting to clear the bowl walls, not bone-dry." },
-  { n: "03", title: "Stretch & folds", spec: "4 sets · 30 min apart",
-    why: "Folding builds strength in layers without overworking the dough. Each set realigns and tensions the gluten and redistributes the yeast's gas and food. Four sets over two hours turns a slack puddle into a billowy, structured mass that can survive a long cold ferment and still hold deep dimples." },
-  { n: "04", title: "Cold fermentation", spec: "48–72 hr · 72 hr preferred",
-    why: "The cold retard is where flavor and texture are won. Slow fermentation produces organic acids and deep, complex flavor while the gluten relaxes and the structure becomes uniform and extensible. 72 hours gives the most developed taste and the most workable, lamination-ready dough." },
-  { n: "05", title: "Layering — the flaky trick", spec: "stretch · drizzle fold oil · letter-fold · rest 15 · repeat",
-    why: "This is the move that pushes it past classic focaccia. After the cold ferment, stretch to a rectangle, drizzle the fold oil, and do a letter fold — then rest and repeat. The thin oil films between folds create subtle internal partitions that shred and tear when baked. It's a light touch of lamination: not croissant layers, just enough to get that dramatic, flaky pull. The 15-min rests let the gluten relax so you can re-stretch without tearing." },
-  { n: "06", title: "Pan proof", spec: "dark metal pan · all the pan oil · relax before stretching to corners",
-    why: "A dark metal pan absorbs and transfers heat aggressively — that's what fries the bottom into a crisp shell. Pour in all the pan oil; the dough essentially shallow-fries from below. Don't force it into the corners cold — let it relax and spread on its own over the proof, or it'll just spring back and tear." },
-  { n: "07", title: "Final proof", spec: "until extremely bubbly & jiggly · err over- not under-proof",
-    why: "You want it visibly alive — domed, bubbly, wobbling when nudged. Under-proofed focaccia bakes dense and tight. For this texture-forward target, leaning slightly past full proof gives the lightest, most shred-prone crumb. When the surface is blistered and it jiggles, it's ready." },
-  { n: "08", title: "Dimple + brine", spec: "oil fingers · press nearly to pan bottom · spoon brine into the wells",
-    why: "Oil your fingers, then drive them straight down almost to the pan. Aggressive dimples create the lunar-landscape surface and define the high ridges that crunch against soft valleys. Now whisk the brine (water + oil + salt) and spoon it over so it pools in the wells — the water steams off and concentrates the salt and oil into crisp, seasoned, caramelized pockets. Shy dimples bake out and won't hold the brine; commit fully." },
-  { n: "09", title: "Bake", spec: "500°F / 260°C · 8 min  →  450°F / 232°C · 12–15 min",
-    why: "The blast of initial heat maximizes oven spring and sets the crust fast while the oil sears the base. Dropping to 450°F afterward finishes the interior and deepens color without scorching the oil — pushed too hot too long, it turns acrid. Pull it deep golden-brown, edges crackling." },
-];
+// A labelled slider with a live readout, lo↔hi captions, and an expandable
+// "why" science note. `stops` (optional) renders discrete tick labels.
+function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, why, accent }) {
+  const [open, setOpen] = useState(false);
+  const col = accent ? C.rust : C.olive;
+  return (
+    <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px 11px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{label}</span>
+        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: col, fontWeight: 600, whiteSpace: "nowrap" }}>{readout}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: col, margin: "9px 0 2px" }} />
+      {stops ? (
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.inkSoft }}>
+          {stops.map((s, i) => (
+            <span key={s} style={{ color: i === value ? col : C.inkSoft, fontWeight: i === value ? 600 : 400, textAlign: "center", flex: 1 }}>{s}</span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>
+          <span>{lo}</span><span>{hi}</span>
+        </div>
+      )}
+      <button onClick={() => setOpen((o) => !o)} style={{ marginTop: 7, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: col, fontWeight: 600, letterSpacing: 0.5 }}>
+        {open ? "− why" : "ⓘ why"}
+      </button>
+      {open && <div style={{ marginTop: 5, fontSize: 13, lineHeight: 1.5, color: C.inkSoft, animation: "riseIn .2s ease" }}>{why}</div>}
+    </div>
+  );
+}
 
-const STEPS_EXPRESS = [
-  { n: "01", title: "Fermentolyse — warm", spec: "ALL flour + all WARM water (95–100°F) + yeast + sugar · rest 20 min · then add salt",
-    why: "On a two-hour clock you want fermentation starting immediately, so this is a fermentolyse: mix all the flour with all the warm water plus the yeast and sugar, and let it sit 20 min. The warm water primes hydration and wakes the yeast from minute one, while the short rest still hydrates all the flour and hands you extensibility for free. Hold only the salt until after — it tightens gluten and would blunt the fast start you're after. (No reason to hold back flour here either; you'd just autolyse half of it and have to mix the rest in dry.)" },
-  { n: "02", title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
-    why: "Build a moderate, cohesive gluten matrix — enough to trap gas fast and hold the quick layers. Warm dough develops quickly, so watch it: glossy and clearing the bowl, not over-beaten and hot. Keep mixer time to the lower end if the dough warms past ~78°F." },
-  { n: "03", title: "Warm bulk + oiled folds — the 1 hr rise", spec: "warm spot ~80–85°F · 2 oiled letter-folds at 20 & 40 min",
-    why: "This single warm hour does the job the long ferment normally would — heat drives the gas and the elevated yeast makes it happen fast. Fold for strength, but here's the efficiency: drizzle the fold oil before each letter-fold so the same two folds also build your flaky layers. You're collapsing strength-building and the lamination trick into the bulk. Find real warmth — oven with the light on, or near the stove. Not visibly puffy at the hour? Give it another 15–20 min; the clock is a target, dough readiness is the rule." },
-  { n: "04", title: "Pan + final proof — the 1 hr proof", spec: "dark metal pan · all the pan oil · proof warm until bubbly & jiggly · err over- not under",
-    why: "Pour all the pan oil into a dark metal pan — that's what shallow-fries the base into a crisp shell. Transfer the dough, let it relax (don't fight it into the corners), and proof warm. A short proof leans on warmth, so keep it in that 80–85°F spot. Push slightly past full proof rather than under: domed, bubbly, wobbling. Sluggish at an hour? Wait it out — underproofed express dough bakes tight and bready." },
-  { n: "05", title: "Dimple + brine", spec: "oil fingers · press nearly to pan bottom · spoon brine into the wells",
-    why: "Oil your fingers and drive them straight down almost to the pan. Aggressive dimples give the lunar-landscape surface and set the ridges that crunch against the soft valleys — on a same-day dough they help even more, the deeper structure compensating for the shorter ferment. Then whisk the brine (water + oil + salt) and spoon it over so it pools in the wells; the water flashes off and concentrates salt and oil into crisp, seasoned pockets. Commit fully — shy dimples bake out and won't hold the brine." },
-  { n: "06", title: "Bake", spec: "500°F / 260°C · 8 min  →  450°F / 232°C · 12–15 min",
-    why: "The initial blast maximizes oven spring and sears the oiled base while the crust sets. Drop to 450°F to finish the interior and deepen color without scorching the oil. Pull it deep golden-brown with crackling edges — a same-day loaf especially wants that hard crust to carry the texture, since you didn't bank the long-ferment flavor." },
-];
+// ---------------------------------------------------------------------------
+// Process generator — steps adapt to schedule, lamination count, hydration
+// ---------------------------------------------------------------------------
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, semolina }) {
+  const express = schIdx === 0;
+  const handling = hydration >= 84 ? "very slack and glossy — wet hands"
+    : hydration >= 76 ? "slack but cohesive" : "supple and easy to handle";
+  const foldPhrase = folds === 0
+    ? "2 plain stretch-&-folds for strength"
+    : `${folds} stretch-&-fold${folds > 1 ? "s" : ""}, oil drizzled before each`;
 
+  const steps = [];
+
+  if (express) {
+    steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F) + yeast (${sch.yeast}%) + sugar · rest 20 min · then salt`,
+      why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min: the flour fully hydrates (free extensibility), and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and blunts the fast start you need here.` });
+    steps.push({ title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
+      why: `Build a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}. Warm dough develops quickly; stop when glossy and clearing the bowl, before it overheats past ~78°F.` });
+    steps.push({ title: "Warm bulk + folds — the 1 hr rise", spec: `${sch.temp} · ${foldPhrase} at 20 & 40 min`,
+      why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."} Not puffy at the hour? Give it 15–20 min more — readiness rules, not the clock.` });
+  } else {
+    steps.push({ title: "Autolyse", spec: "ALL flour + all dough water · rest 30–45 min · then yeast + salt",
+      why: `Mix flour and water to a shaggy mass and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Hold yeast and salt: salt tightens gluten and slows the enzymes; yeast would ferment before you've built structure.` });
+    steps.push({ title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
+      why: `A moderate, well-organized gluten matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it should pull off the hook ${handling}. Stop when cohesive and clearing the walls, not bone-dry.` });
+    steps.push({ title: "Strength folds", spec: "3–4 sets · 30 min apart, during the warm start",
+      why: `Folding builds strength in layers without overworking. Each set re-tensions the gluten and redistributes gas and yeast food, turning a slack puddle into a structured mass that survives the long cold ferment and still holds deep dimples.` });
+    steps.push({ title: `Cold fermentation`, spec: `${sch.cold} in the fridge · ${sch.name}`,
+      why: `The cold retard is where flavour and texture are won (Cauvain, Ch.2: fermentation drives bread flavour). Slow, cold fermentation builds organic acids and complex aroma — ${sch.tang} — while the gluten relaxes into a uniform, extensible, lamination-ready dough.` });
+    if (folds > 0) {
+      steps.push({ title: "Laminate — the flaky trick", spec: `stretch thin · drizzle oil · letter-fold ×${folds} · rest 15 between`,
+        why: `After the cold ferment, stretch to a rectangle, drizzle oil, and letter-fold ${folds} time${folds > 1 ? "s" : ""}. The thin oil films become internal partitions that shred and tear when baked — light lamination, not croissant layers, just enough for a dramatic flaky pull. The 15-min rests let gluten relax so you can re-stretch without tearing.` });
+    }
+  }
+
+  steps.push({ title: express ? "Pan + final proof — the 1 hr proof" : "Pan proof + final proof",
+    spec: `dark metal pan · all the pan oil (${panOilPct}%) · ${sch.proof} · proof until bubbly & jiggly`,
+    why: `Flood a dark metal pan with all the pan oil — the dough essentially shallow-fries from below into a crisp shell. Let it relax and spread on its own (don't force the corners cold, it'll spring back and tear). Proof until visibly alive — domed, blistered, wobbling. Err slightly past full proof; under-proofed focaccia bakes dense and tight.` });
+
+  steps.push({ title: "Dimple + brine", spec: "oil fingers · press nearly to the pan bottom · spoon brine into the wells",
+    why: `Drive oiled fingers straight down almost to the pan. Aggressive dimples make the lunar-landscape surface and set high ridges that crunch against soft valleys. Whisk the brine (water + oil + salt) and spoon it so it pools in the wells — the water steams off and concentrates salt and oil into crisp, seasoned, caramelized pockets. Shy dimples bake out and won't hold brine; commit.` });
+
+  const hot = panOilPct >= 10;
+  steps.push({ title: "Bake", spec: `500°F / 260°C · 8 min  →  450°F / 232°C · ${hot ? "13–16" : "12–15"} min`,
+    why: `The initial blast maximizes oven spring and sears the oiled base while the crust sets fast; controlled, uniform spring is the goal (Cauvain, Ch.1). Drop to 450°F to finish the interior and deepen colour without scorching the oil${hot ? " — at this much pan oil, watch the base and pull the moment it's mahogany, not past it" : ""}. ${semolina ? "The semolina pushes the crust toward a sandy, fracturing crunch. " : ""}Pull it deep golden-brown, edges crackling.` });
+
+  return steps.map((s, i) => ({ ...s, n: String(i + 1).padStart(2, "0") }));
+}
+
+// ---------------------------------------------------------------------------
 export default function FocacciaBuildSheet() {
+  // master scale
   const [flour, setFlour] = useState(500);
-  const [semolina, setSemolina] = useState(false);
-  const [panOilPct, setPanOilPct] = useState(8);
+  // quality dials
+  const [hydration, setHydration] = useState(80);   // %  open ↔ tight crumb
+  const [schIdx, setSchIdx] = useState(0);           // 0–3 ferment / tang
+  const [folds, setFolds] = useState(2);             // 0–4 flakiness
+  const [panOilPct, setPanOilPct] = useState(8);     // %  fried base
+  const [saltPct, setSaltPct] = useState(2.4);       // %  seasoning + structure
+  const [semolinaPct, setSemolinaPct] = useState(5); // %  crust fracture
+  // options
   const [twoPans, setTwoPans] = useState(true);
-  const [mode, setMode] = useState("express");
   const [openStep, setOpenStep] = useState("01");
 
   const f = Math.max(0, Number(flour) || 0);
-  const express = mode === "express";
-  const yeastPct = YEAST[mode];
+  const sch = SCHEDULES[schIdx];
+  const express = schIdx === 0;
 
   const v = useMemo(() => {
-    const breadFlour = semolina ? f * (1 - SEMOLINA_PCT / 100) : f;
-    const sem = semolina ? f * (SEMOLINA_PCT / 100) : 0;
-    const water = f * (BP.water / 100);
-    const salt = f * (BP.salt / 100);
-    const yeast = f * (yeastPct / 100);
-    const sugar = express ? f * (SUGAR_EXPRESS / 100) : 0;
+    const sem = f * (semolinaPct / 100);
+    const breadFlour = f - sem;
+    const water = f * (hydration / 100);
+    const salt = f * (saltPct / 100);
+    const yeast = f * (sch.yeast / 100);
+    const sugar = f * (sch.sugar / 100);
     const panOil = f * (panOilPct / 100);
-    const foldOil = f * (FOLD_OIL / 100);
+    const foldOilPct = folds; // ~1% oil per laminating fold
+    const foldOil = f * (foldOilPct / 100);
     const brineWater = f * (BRINE_WATER / 100);
     const brineOil = f * (BRINE_OIL / 100);
     const doughWeight = f + water + salt + yeast + sugar;
     const totalOil = panOil + foldOil + brineOil;
-    return { breadFlour, sem, water, salt, yeast, sugar, panOil, foldOil, brineWater, brineOil, doughWeight, totalOil };
-  }, [f, semolina, panOilPct, yeastPct, express]);
+    return { sem, breadFlour, water, salt, yeast, sugar, panOil, foldOil, foldOilPct, brineWater, brineOil, doughWeight, totalOil };
+  }, [f, hydration, saltPct, semolinaPct, panOilPct, folds, sch]);
 
   const groups = [
-    {
-      title: "Dough",
-      items: [
-        { k: "Bread flour", g: round(v.breadFlour), pct: semolina ? 95 : 100 },
-        ...(semolina ? [{ k: "Semolina", g: round(v.sem), pct: SEMOLINA_PCT, accent: true }] : []),
-        { k: express ? "Water — warm, 95–100°F" : "Water", g: round(v.water), pct: BP.water },
-        { k: "Salt", g: round(v.salt, 1), pct: BP.salt },
-        { k: "Instant yeast", g: round(v.yeast, 1), pct: yeastPct, accent: express, note: express ? "bumped for the short clock" : undefined },
-        ...(express ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: SUGAR_EXPRESS, note: "jump-starts yeast" }] : []),
-      ],
-    },
-    {
-      title: "Pan & folds",
-      caption: "the oil that fries the base + laminates the layers",
-      items: [
-        { k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct, note: "floods the dark pan" },
-        { k: "Olive oil — folds", g: round(v.foldOil), pct: FOLD_OIL, note: "drizzled between letter-folds" },
-      ],
-    },
-    {
-      title: "Brine — salamoia",
-      caption: "whisk together, spoon into the dimples right before baking",
-      brine: true,
-      items: [
-        { k: "Water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
-        { k: "Olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
-        { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
-      ],
-    },
+    { title: "Dough", items: [
+      { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) },
+      ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
+      { k: express ? "Water — warm, 95–100°F" : "Water", g: round(v.water), pct: hydration },
+      { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) },
+      { k: "Instant yeast", g: round(v.yeast, 2), pct: sch.yeast, accent: express, note: express ? "bumped for the short clock" : "low — the ferment does the work" },
+      ...(v.sugar > 0 ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" }] : []),
+    ] },
+    { title: "Pan & folds", caption: "the oil that fries the base + laminates the layers", items: [
+      { k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct, note: "floods the dark pan" },
+      ...(v.foldOil > 0 ? [{ k: "Olive oil — folds", g: round(v.foldOil), pct: round(v.foldOilPct, 1), note: `drizzled across ${folds} letter-fold${folds > 1 ? "s" : ""}` }]
+        : [{ k: "Olive oil — folds", g: null, pct: null, note: "no lamination at this setting" }]),
+    ] },
+    { title: "Brine — salamoia", caption: "whisk together, spoon into the dimples right before baking", brine: true, items: [
+      { k: "Water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
+      { k: "Olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
+      { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
+    ] },
   ];
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const STEPS = express ? STEPS_EXPRESS : STEPS_LONG;
+  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, semolina: semolinaPct > 0 }),
+    [sch, schIdx, folds, hydration, panOilPct, semolinaPct]);
+
+  // live texture/flavour profile chips
+  const profile = [
+    hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
+    sch.tang,
+    folds === 0 ? "pillowy, no shred" : folds <= 2 ? "light flaky shred" : "deeply flaky, shreddy",
+    panOilPct >= 10 ? "hard fried base" : panOilPct >= 8 ? "crisp fried base" : "lightly crisp base",
+    ...(semolinaPct >= 8 ? ["sandy fracturing crust"] : []),
+    saltPct >= 2.6 ? "boldly salted" : saltPct <= 2.0 ? "restrained salt" : "well salted",
+  ];
 
   return (
     <div style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink,
@@ -171,26 +244,13 @@ export default function FocacciaBuildSheet() {
         <div style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: 14, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 8 }}>
           <div>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600 }}>
-              Build Sheet · v5 · hot-rodded
+              Focaccia Studio · dial it in
             </div>
-            <h1 style={{ margin: "4px 0 0", fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Flaky Focaccia</h1>
+            <h1 style={{ margin: "4px 0 0", fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Build Your Focaccia</h1>
           </div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, textAlign: "right", color: C.inkSoft, lineHeight: 1.5 }}>
-            85% hydration<br />crisp shell · shred crumb
+            {hydration}% hydration<br />{sch.clock} · {sch.name.toLowerCase()}
           </div>
-        </div>
-
-        {/* Mode switch */}
-        <div style={{ display: "flex", gap: 6, background: C.paperDeep, padding: 6, borderRadius: 12, marginBottom: 16 }}>
-          {[{ id: "express", label: "Same-day express", sub: "1 hr rise · 1 hr proof" }, { id: "long", label: "Long ferment", sub: "48–72 hr cold" }].map((m) => {
-            const active = mode === m.id;
-            return (
-              <button key={m.id} onClick={() => setMode(m.id)} style={{ flex: 1, border: "none", borderRadius: 9, padding: "10px 8px", cursor: "pointer", background: active ? C.ink : "transparent", color: active ? C.paper : C.inkSoft, fontFamily: "'Fraunces', serif", transition: "all .18s ease" }}>
-                <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{m.label}</span>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, opacity: 0.8 }}>{m.sub}</span>
-              </button>
-            );
-          })}
         </div>
 
         {/* Flour master input */}
@@ -213,21 +273,46 @@ export default function FocacciaBuildSheet() {
           </div>
         </div>
 
-        {/* Options */}
+        {/* ---- THE DIALS ---- */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "4px 2px 10px" }}>
+          <span>The dials — tune the loaf</span>
+          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>recipe recomputes live</span>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <Toggle on={semolina} onClick={() => setSemolina((s) => !s)} label="5% semolina swap" sub="more crust fracture" />
-          <Toggle on={twoPans} onClick={() => setTwoPans((s) => !s)} label="Split 2 pans" sub="cherry tomato + plain" />
+          <Dial label="Crumb — hydration" value={hydration} min={65} max={90} step={1}
+            onChange={setHydration} readout={`${hydration}% · ${round(v.water)}g`} lo="tight / bread-y" hi="open / custardy"
+            why="Water as a % of flour. Gluten forms from hydration plus kneading energy (Cauvain, Ch.2), and more water gives larger, more irregular holes and a moist, custardy crumb — at the cost of a slacker, wetter-to-handle dough. Below ~70% it bakes tighter and more sandwich-bread-like." />
+          <Dial label="Ferment & tang" value={schIdx} min={0} max={3} step={1}
+            onChange={setSchIdx} readout={`${sch.name} · ${sch.yeast}% yeast`} stops={["same-day", "night", "2-day", "3-day"]}
+            accent
+            why={`The yeastiness/flavour axis. Long, cold fermentation builds organic acids and deep aroma while relaxing the gluten — so it needs less yeast because it works longer (Cauvain, Ch.2: fermentation → bread flavour). Right now: ${sch.temp}, ${sch.clock} total, ${sch.tang}.`} />
+          <Dial label="Flakiness — lamination" value={folds} min={0} max={4} step={1}
+            onChange={setFolds} readout={folds === 0 ? "none" : `${folds} oiled fold${folds > 1 ? "s" : ""}`} stops={["0", "1", "2", "3", "4"]}
+            why="Letter-folds with oil drizzled between them lay down thin fat films that shred into flaky layers when baked — light lamination, not croissant layers. Zero folds is classic pillowy focaccia; more folds trade some height for a dramatic, tearing pull." />
+          <Dial label="Fried base — pan oil" value={panOilPct} min={6} max={12} step={1}
+            onChange={setPanOilPct} readout={`${panOilPct}% · ${round(v.panOil)}g`} lo="light fry" hi="deep shallow-fry" accent
+            why="Olive oil flooded into a dark metal pan shallow-fries the base into a crisp, blistered shell as it bakes. More oil = a deeper fry and a crunchier, more savoury bottom — push it too far and the very edges can turn greasy, so pair high oil with the longer bake." />
+          <Dial label="Salt" value={saltPct} min={1.6} max={2.8} step={0.1}
+            onChange={setSaltPct} readout={`${round(saltPct, 1)}% · ${round(v.salt, 1)}g`} lo="lean" hi="bold"
+            why="Salt seasons, but it also tightens the gluten network and slows the yeast — bakers even delay adding it to speed early fermentation (Cauvain, Ch.2). Higher salt = stronger structure and a slower rise; 2.2–2.5% is the usual focaccia window." />
+          <Dial label="Semolina swap" value={semolinaPct} min={0} max={15} step={1}
+            onChange={setSemolinaPct} readout={semolinaPct === 0 ? "none" : `${semolinaPct}% · ${round(v.sem)}g`} lo="all bread flour" hi="15% durum"
+            why="Swapping in durum semolina adds golden colour and a sandy, fracturing crust. It dilutes the gluten, though, so too much (beyond ~15%) dulls the rise and toughens the crumb." />
         </div>
 
-        {/* Pan oil slider */}
-        <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 10, padding: "14px 16px", marginBottom: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-            <span style={{ fontWeight: 600, fontSize: 15 }}>Pan oil — the fry</span>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: C.rust, fontWeight: 600 }}>{panOilPct}% · {round(v.panOil)}g</span>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 12 }}>
+          <Toggle on={twoPans} onClick={() => setTwoPans((s) => !s)} label="Split into 2 pans" sub="e.g. cherry-tomato + plain" />
+        </div>
+
+        {/* Live profile chips */}
+        <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 22 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.5, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 9 }}>
+            This build tastes like
           </div>
-          <input type="range" min={6} max={11} step={1} value={panOilPct} onChange={(e) => setPanOilPct(Number(e.target.value))} style={{ width: "100%", accentColor: C.olive }} />
-          <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
-            <span>light fry</span><span>full shallow-fry</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+            {profile.map((p, i) => (
+              <span key={i} style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, padding: "5px 11px", borderRadius: 20, background: C.paperDeep, color: C.oliveDeep, fontWeight: 600, border: `1px solid ${C.line}` }}>{p}</span>
+            ))}
           </div>
         </div>
 
@@ -239,9 +324,7 @@ export default function FocacciaBuildSheet() {
                 <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, letterSpacing: 1.5, textTransform: "uppercase", color: grp.brine ? C.rust : C.inkSoft, fontWeight: 600 }}>
                   ▸ {grp.title}
                 </div>
-                {grp.caption && (
-                  <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 2, fontStyle: "italic" }}>{grp.caption}</div>
-                )}
+                {grp.caption && <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 2, fontStyle: "italic" }}>{grp.caption}</div>}
               </div>
               {grp.items.map((r, i) => (
                 <div key={r.k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 18px", borderTop: i === 0 ? "none" : `1px solid ${C.paperDeep}` }}>
@@ -250,16 +333,14 @@ export default function FocacciaBuildSheet() {
                     {r.note && <span style={{ display: "block", fontSize: 11, color: C.inkSoft, fontFamily: "'IBM Plex Mono', monospace" }}>{r.note}</span>}
                   </span>
                   <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    {r.pct != null && (
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: r.accent ? C.rust : C.inkSoft, marginRight: 10 }}>{r.pct}%</span>
-                    )}
+                    {r.pct != null && <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: r.accent ? C.rust : C.inkSoft, marginRight: 10 }}>{r.pct}%</span>}
                     {r.g != null ? (
                       <>
-                        <Num><span style={{ fontSize: 19, color: r.accent ? C.rust : C.ink }}>{r.g}</span></Num>
+                        <Num color={r.accent ? C.rust : C.ink}><span style={{ fontSize: 19 }}>{r.g}</span></Num>
                         <span style={{ fontSize: 13, color: C.inkSoft }}> g</span>
                       </>
                     ) : (
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: C.inkSoft }}>to taste</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: C.inkSoft }}>{r.note ? "—" : "to taste"}</span>
                     )}
                   </span>
                 </div>
@@ -279,7 +360,7 @@ export default function FocacciaBuildSheet() {
         {/* Process */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 12 }}>
           <span>Process — tap for the why</span>
-          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{express ? "~2.5 hr + bake" : "~3 days"}</span>
+          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{sch.clock}{express ? " + bake" : ""}</span>
         </div>
 
         {STEPS.map((s) => {
@@ -300,17 +381,20 @@ export default function FocacciaBuildSheet() {
         })}
 
         {/* Tomato note */}
-        <div style={{ marginTop: 22, background: C.card, border: `1.5px dashed ${C.rust}`, borderRadius: 12, padding: "16px 18px" }}>
-          <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>🍅 Cherry-tomato pan</div>
-          <div style={{ fontSize: 15, lineHeight: 1.55, color: C.inkSoft }}>
-            Halve the tomatoes and press the cut faces up into the dough <em>at dimpling time</em>, alongside the brine — they
-            should sit in the oily wells so they roast and blister rather than steam. Rosemary needles after they're seated.
-            Keep the plain pan austere: just the brine, deep dimples, and flaky salt so you can taste the crust work.
+        {twoPans && (
+          <div style={{ marginTop: 22, background: C.card, border: `1.5px dashed ${C.rust}`, borderRadius: 12, padding: "16px 18px" }}>
+            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>🍅 Cherry-tomato pan</div>
+            <div style={{ fontSize: 15, lineHeight: 1.55, color: C.inkSoft }}>
+              Halve the tomatoes and press the cut faces up into the dough <em>at dimpling time</em>, alongside the brine — they
+              should sit in the oily wells so they roast and blister rather than steam. Rosemary needles after they're seated.
+              Keep the plain pan austere: just the brine, deep dimples, and flaky salt so you can taste the crust work.
+            </div>
           </div>
-        </div>
+        )}
 
-        <div style={{ textAlign: "center", marginTop: 26, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft, letterSpacing: 1 }}>
-          baker's % locked to flour mass · everything above scales live
+        <div style={{ textAlign: "center", marginTop: 26, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft, letterSpacing: 1, lineHeight: 1.6 }}>
+          baker's % locked to flour mass · everything scales live<br />
+          science notes drawn from the repo reference corpus
         </div>
       </div>
     </div>
