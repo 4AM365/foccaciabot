@@ -118,8 +118,11 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // ---------------------------------------------------------------------------
 // Process generator — steps adapt to schedule, lamination count, hydration
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, semolina }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina }) {
   const express = schIdx === 0;
+  const oilNote = doughOilPct > 0
+    ? ` Once the dough is cohesive, drizzle in the ${round(doughOilPct, 1)}% dough oil and mix until it's fully absorbed and glossy again — adding it now, after the gluten has formed, keeps the oil from coating the proteins and blunting development.`
+    : "";
   const handling = hydration >= 84 ? "very slack and glossy — wet hands"
     : hydration >= 76 ? "slack but cohesive" : "supple and easy to handle";
   const foldPhrase = folds === 0
@@ -132,14 +135,14 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, semolina }) {
     steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F) + yeast (${sch.yeast}%) + sugar · rest 20 min · then salt`,
       why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min: the flour fully hydrates (free extensibility), and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and blunts the fast start you need here.` });
     steps.push({ title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
-      why: `Build a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}. Warm dough develops quickly; stop when glossy and clearing the bowl, before it overheats past ~78°F.` });
+      why: `Build a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}. Warm dough develops quickly; stop when glossy and clearing the bowl, before it overheats past ~78°F.${oilNote}` });
     steps.push({ title: "Warm bulk + folds — the 1 hr rise", spec: `${sch.temp} · ${foldPhrase} at 20 & 40 min`,
       why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."} Not puffy at the hour? Give it 15–20 min more — readiness rules, not the clock.` });
   } else {
     steps.push({ title: "Autolyse", spec: "ALL flour + all dough water · rest 30–45 min · then yeast + salt",
       why: `Mix flour and water to a shaggy mass and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Hold yeast and salt: salt tightens gluten and slows the enzymes; yeast would ferment before you've built structure.` });
     steps.push({ title: "Mixer development", spec: "dough hook · low speed · 6–8 min",
-      why: `A moderate, well-organized gluten matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it should pull off the hook ${handling}. Stop when cohesive and clearing the walls, not bone-dry.` });
+      why: `A moderate, well-organized gluten matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it should pull off the hook ${handling}. Stop when cohesive and clearing the walls, not bone-dry.${oilNote}` });
     steps.push({ title: "Strength folds", spec: "3–4 sets · 30 min apart, during the warm start",
       why: `Folding builds strength in layers without overworking. Each set re-tensions the gluten and redistributes gas and yeast food, turning a slack puddle into a structured mass that survives the long cold ferment and still holds deep dimples.` });
     steps.push({ title: `Cold fermentation`, spec: `${sch.cold} in the fridge · ${sch.name}`,
@@ -173,6 +176,7 @@ export default function FocacciaBuildSheet() {
   const [schIdx, setSchIdx] = useState(0);           // 0–3 ferment / tang
   const [folds, setFolds] = useState(2);             // 0–4 flakiness
   const [panOilPct, setPanOilPct] = useState(8);     // %  fried base
+  const [doughOilPct, setDoughOilPct] = useState(5); // %  EVOO worked into the dough
   const [saltPct, setSaltPct] = useState(2.4);       // %  seasoning + structure
   const [semolinaPct, setSemolinaPct] = useState(5); // %  crust fracture
   // options
@@ -191,14 +195,15 @@ export default function FocacciaBuildSheet() {
     const yeast = f * (sch.yeast / 100);
     const sugar = f * (sch.sugar / 100);
     const panOil = f * (panOilPct / 100);
+    const doughOil = f * (doughOilPct / 100);
     const foldOilPct = folds; // ~1% oil per laminating fold
     const foldOil = f * (foldOilPct / 100);
     const brineWater = f * (BRINE_WATER / 100);
     const brineOil = f * (BRINE_OIL / 100);
-    const doughWeight = f + water + salt + yeast + sugar;
-    const totalOil = panOil + foldOil + brineOil;
-    return { sem, breadFlour, water, salt, yeast, sugar, panOil, foldOil, foldOilPct, brineWater, brineOil, doughWeight, totalOil };
-  }, [f, hydration, saltPct, semolinaPct, panOilPct, folds, sch]);
+    const doughWeight = f + water + salt + yeast + sugar + doughOil;
+    const totalOil = panOil + doughOil + foldOil + brineOil;
+    return { sem, breadFlour, water, salt, yeast, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, doughWeight, totalOil };
+  }, [f, hydration, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch]);
 
   const groups = [
     { title: "Dough", items: [
@@ -208,6 +213,8 @@ export default function FocacciaBuildSheet() {
       { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) },
       { k: "Instant yeast", g: round(v.yeast, 2), pct: sch.yeast, accent: express, note: express ? "bumped for the short clock" : "low — the ferment does the work" },
       ...(v.sugar > 0 ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" }] : []),
+      { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1),
+        note: doughOilPct === 0 ? "none — Ligurian-style, oil stays outside the dough" : "softens crumb · tenderises gluten · added after mixing" },
     ] },
     { title: "Pan & folds", caption: "the oil that fries the base + laminates the layers", items: [
       { k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct, note: "floods the dark pan" },
@@ -222,14 +229,15 @@ export default function FocacciaBuildSheet() {
   ];
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, semolina: semolinaPct > 0 }),
-    [sch, schIdx, folds, hydration, panOilPct, semolinaPct]);
+  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0 }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct]);
 
   // live texture/flavour profile chips
   const profile = [
     hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
     sch.tang,
     folds === 0 ? "pillowy, no shred" : folds <= 2 ? "light flaky shred" : "deeply flaky, shreddy",
+    doughOilPct === 0 ? "lean dough" : doughOilPct >= 6 ? "rich & tender" : "lightly enriched",
     panOilPct >= 10 ? "hard fried base" : panOilPct >= 8 ? "crisp fried base" : "lightly crisp base",
     ...(semolinaPct >= 8 ? ["sandy fracturing crust"] : []),
     saltPct >= 2.6 ? "boldly salted" : saltPct <= 2.0 ? "restrained salt" : "well salted",
@@ -292,6 +300,9 @@ export default function FocacciaBuildSheet() {
           <Dial label="Fried base — pan oil" value={panOilPct} min={6} max={12} step={1}
             onChange={setPanOilPct} readout={`${panOilPct}% · ${round(v.panOil)}g`} lo="light fry" hi="deep shallow-fry" accent
             why="Olive oil flooded into a dark metal pan shallow-fries the base into a crisp, blistered shell as it bakes. More oil = a deeper fry and a crunchier, more savoury bottom — push it too far and the very edges can turn greasy, so pair high oil with the longer bake." />
+          <Dial label="Dough oil — richness" value={doughOilPct} min={0} max={10} step={0.5}
+            onChange={setDoughOilPct} readout={doughOilPct === 0 ? "none" : `${round(doughOilPct, 1)}% · ${round(v.doughOil)}g`} lo="lean / Ligurian" hi="rich / tender"
+            why="Olive oil worked into the dough itself. Cauvain (Ch.2, Table 2.2) lists fat at 1–2% of flour as an optional improver that raises gas retention and crumb softness; the fat lubricates and shortens the gluten for a more tender, finer crumb and longer keeping. Focaccia genovese typically runs ~5%. Fat also softens the dough (Cauvain, Ch.9), so at high oil pull the water back a couple of points. Add it after the gluten has started forming — oil early in the mix coats the proteins and slows development." />
           <Dial label="Salt" value={saltPct} min={1.6} max={2.8} step={0.1}
             onChange={setSaltPct} readout={`${round(saltPct, 1)}% · ${round(v.salt, 1)}g`} lo="lean" hi="bold"
             why="Salt seasons, but it also tightens the gluten network and slows the yeast — bakers even delay adding it to speed early fermentation (Cauvain, Ch.2). Higher salt = stronger structure and a slower rise; 2.2–2.5% is the usual focaccia window." />
