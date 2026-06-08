@@ -1,0 +1,53 @@
+---
+book: "On Food and Cooking: The Science and Lore of the Kitchen"
+book_slug: "mcgee-on-food-and-cooking"
+author: "Harold McGee"
+lang: "en"
+relevance: "high"
+chapter: "Chapter 6: A Survey of Common Vegetables"
+heading: "The Onion Family: Onions, Garlic, Leeks"
+breadcrumb: ["Chapter 6: A Survey of Common Vegetables", "The Onion Family: Onions, Garlic, Leeks"]
+order: 248
+source_page: null
+tokens_est: 2542
+---
+
+# The Onion Family: Onions, Garlic, Leeks
+
+The Onion Family: Onions, Garlic, Leeks
+
+There are around 500 species in the genus Allium, a group of plants in the lily family that are native to northern temperate regions. About 20 are important human foods, and a handful have been prized for thousands of years, as is attested by the well-known lament of the exiled Israelites in the Old Testament: "We remember the fish, which we did eat in Egypt freely; the cucumbers, and the melons, and the leeks, and the onions, and the garlic." Onions, garlic, and most of their relatives are grown primarily for their underground bulbs, which are made up of swollen leaf bases or "scales" that store energy for the beginning of the next growing season, and which naturally keep well for months. Like the sunchoke and its relatives, the onion family accumulates energy stores not in starch, but in chains of fructose sugars (p. 805), which long, slow cooking breaks down to produce a marked sweetness. Of course the fresh green leaves of bulb-forming alliums are also eaten, and nonbulbing kinds, including leeks, chives, and some onions, give only their leaves.
+
+The key to the onion family's appeal is a strong, often pungent, sulfury flavor whose original purpose was to deter animals from eating the plants. Cooking transforms this chemical defense into a deliciously savory, almost meaty quality that adds depth to many dishes in many cultures.
+
+The Flavors and Sting of Raw Alliums
+
+The distinctive flavors of the onion family come from its defensive use of the element sulfur. The growing plants take up sulfur from the soil and incorporate it into four different kinds of chemical ammunition, which float in the cell fluids while their enzyme trigger is held separately in a storage vacuole (p. 261). When the cell is damaged by chopping or chewing, the enzyme escapes and breaks the ammunition molecules in half to produce irritating, strong-smelling sulfurous molecules. Some of these are very reactive and unstable, so they continue to evolve into other compounds. The mixture of molecules produced creates the food's raw flavor, and depends on the initial ammunition, how thoroughly the tissue is damaged, how much oxygen gets into the reactions, and how long the reactions go on. Onion flavor typically includes apple-like, burning, rubbery, and bitter notes; leek flavor has cabbage-like, creamy, and meaty aspects, while garlic seems especially potent because it produces a hundredfold higher concentration of initial reaction products than do other alliums. Chopping, pounding in a mortar, and pureeing in a food processor all give distinctive results. Chopped alliums to be eaten raw - as a garnish or in an uncooked sauce - are best rinsed to remove all the sulfur compounds from the damaged surfaces, since these tend to become harsher with time and exposure to the air.
+
+Onion and garlic bulbs. The bulbs in the onion family consist of a central stem bud and surrounding leaf bases, which swell with stored nutrients during one growing season and then supply them to the bud in the next.
+
+One sulfur product is produced in significant quantities only in the onion, shallot, leek, chive, and rakkyo: the "lacrimator," which causes our eyes to water. This volatile chemical escapes from the damaged onion into the air, and lands in the onion cutter's eyes and nose, where it apparently attacks nerve endings directly, then breaks down into hydrogen sulfide, sulfur dioxide, and sulfuric acid. A very effective molecular bomb! Its effects can be minimized by prechilling the onions for 30-60 minutes in ice water. This treatment slows the ammunition-breaking enzyme down to a crawl, and gives all the volatile molecules less energy to launch themselves into the air. It also hydrates the papery onion skin, which makes it tougher and less brittle, and so easier to peel off.
+
+The Flavors of Cooked Alliums When onions and their relatives are heated, the various sulfur compounds react with each other and with other substances to produce a range of characteristic flavor molecules. The cooking method, temperature, and medium strongly affect the flavor balance. Baking, drying, and microwaving tend to generate trisulfides, the characteristic notes of overcooked cabbage. Cooking at high temperatures in fat produces more volatiles and a stronger flavor than do other techniques. Relatively mild garlic compounds persist in butter but are changed to rubbery, pungent notes in more reactive unsaturated vegetable oils. Blanching whole garlic apparently inactivates the flavor-generating enzyme and limits its action, so the flavor of garlic cooked whole is only slightly pungent, and sweet, nutty notes come to the fore. Similarly, pickled garlic and onions are relatively mild.
+
+The sugar and sugar-chain content of onions and garlic is largely responsible for their readiness to brown when fried, and contributes a caramel note to the cooked flavor.
+
+Food Words: Onion, Garlic, Shallot, Scallion
+
+Vegetable names in the onion family come from diverse sources. Onion itself comes from the Latin for "one," "oneness," "unity," and was the name given by Roman farmers to a variety of onion ( cepa ) that grew singly, without forming multiple bulbs as garlic and shallots do. Garlic is an Anglo-Saxon word that meant "spear-leek": a leek with a slim, pointed leaf blade rather than a broad, open one. And both shallot and scallion come via Latin from Ashqelon, the Hebrew name for a city in what in classical times was southwest Palestine.
+
+Onions and Shallots Onions are plants of the species Allium cepa, which originated in central Asia but has spread across the globe in hundreds of different varieties. There are two major categories of market onions in the United States, defined not by variety but by season and harvesting practice. Spring or short-day onions are planted as seedlings in the late fall, and harvested before they're fully mature in the next spring and early summer. They're relatively mild and moist and perishable, and best kept in the refrigerator. A special category of spring onion is the "sweet" onion - "mild" is more accurate - which is usually a standard yellow spring onion grown in sulfur-poor soils, and therefore endowed with half or less of the usual amounts of sulfur-containing defensive chemicals. The second major kind of market onion is the storage onion, grown through the summer and harvested when mature in the fall, rich in sulfur compounds, drier, and easily stored in cool conditions for several months.
+
+White onion varieties are somewhat moister and don't keep quite as well as yellow onions, which owe their color to phenolic flavonoid compounds. Red onions are pigmented by water-soluble anthocyanins, but only in the surface layers of each leaf scale, so cooking dilutes and dulls their color.
+
+Green onions, or scallions, can be either bulb-forming onion varieties harvested quite young, or special varieties that never do form bulbs. Shallots are a distinctive, clustering variety of onion whose bulbs are smaller, finer-textured, and somewhat milder and sweeter, often with a purple coloration. They're especially valued in France and southeast Asia.
+
+Garlic Garlic is the central Asian native Allium sativum, which produces a tight head of a dozen or more bulbs, or "cloves." "Elephant garlic" is actually a bulbing variety of leek, with a milder flavor, and "wild garlic" yet another species, A. ursinum. Unlike multilayered onion bulbs, garlic cloves consist of a single swollen storage leaf surrounding the young shoot. That leaf contains much less water than onion scales do - under 60% of its weight, compared to 90% for onions - and a much higher concentration of fructose and fructose chains, so during frying or roasting it dries out and browns much quicker than onions do.
+
+Important Members of the Onion Family
+
+There are many different garlic varieties, with different proportions of sulfur compounds and so different flavors and pungencies. The main commercial varieties are grown for their yield and storage life, not their flavor. Cold growing conditions produce a more intense garlic flavor. Garlic is at its moistest soon after harvest, from late summer to late fall, and becomes more concentrated as it slowly dries out during storage. Refrigerated storage causes a decline in distinctively garlicky flavor, and an increase in more generic onion flavors.
+
+Because the peeling and chopping of the small cloves is tedious work, garlic is sometimes prepared in quantity and then stored under oil for later use. This procedure turns out to encourage the growth of deadly botulism bacteria, which thrive in the absence of air. Bacterial growth can be prevented by soaking the garlic in acidic vinegar or lemon juice for several hours before putting it under oil, and by storing the container in the refrigerator. Occasionally, acid-pickled garlic turns a strange shade of bluish-green, a reaction that apparently involves one of the sulfurous flavor precursors. This discoloration can be minimized by blanching the garlic before pickling.
+
+Leeks Unlike onions and garlic, leeks don't form useful storage bulbs, and are grown instead for their scallion-like mass of fresh leaves. (There's one exception to this rule: the leek variety confusingly named "elephant garlic" because it produces a garlic-like bulb cluster that can reach 1 lb/450 gm.) Leeks are very tolerant of cold and in many regions can be harvested throughout the winter. They grow to a large size, and the prized white base portion of their leaves is often increased (to as much as 1 ft/3 m long and 3 in/7.5 cm thick) by hilling soil up around the growing plant to shield more of it from the sun. This practice also fills the spaces between leaves with grit, and necessitates careful washing. The inner leaves (and seldom-used roots) have the strongest flavor. The upper green portion of each leek leaf is edible, but tends to be tougher and to have a less oniony, more cabbage-like flavor than the lower white portion. It's also rich in long-chain carbohydrates that give the cooked vegetable a slippery texture, will gel when chilled, and can lend body to soups and stews.

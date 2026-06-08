@@ -1,0 +1,5 @@
+# Preprocessing pipeline dependencies (extraction + chunking only).
+# Pinned loosely; any recent version works.
+beautifulsoup4>=4.11
+lxml>=4.9
+PyMuPDF>=1.23   # imported as `fitz`; PDF text extraction

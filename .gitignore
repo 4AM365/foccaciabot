@@ -1,0 +1,26 @@
+# --- Source books (purchased, copyrighted — never commit the binaries) ---
+# The derived notes/ and data/ corpus ARE committable work product; the books are not.
+*.epub
+*.pdf
+*.mobi
+*.azw3
+*.azw
+*.djvu
+
+# --- Pipeline intermediates / caches ---
+.cache/
+data/raw/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+
+# --- Local tooling config (personal, not work product) ---
+.claude/settings.local.json
