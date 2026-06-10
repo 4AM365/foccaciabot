@@ -119,16 +119,167 @@ const STYLE_BY_ID = Object.fromEntries(STYLES.map((s) => [s.id, s]));
 const DEFAULT_STYLE = "flaky";
 const STYLE_KEYS = ["hydration", "schIdx", "folds", "panOilPct", "doughOilPct", "saltPct", "semolinaPct", "twoPans"];
 
-// Famous focacce the dial model can't represent honestly — they need a wholly
-// different method (no yeast, or enriched/sweet). Listed, not faked.
-const OFF_MODEL = [
-  { name: "Focaccia di Recco (col formaggio)",
-    note: "Unleavened: two paper-thin sheets of bare oil-and-flour dough around molten stracchino/crescenza, blistered in a screaming oven. No yeast, no rise — the ferment dials simply don't apply." },
-  { name: "Schiacciata all'uva",
-    note: "Tuscan harvest sweet: wine grapes, sugar and oil pressed into a lightly sweetened dough and baked into a jammy, seedy slab. A dessert focaccia." },
-  { name: "Fugassa veneta",
-    note: "Venetian Easter focaccia enriched with eggs, butter, sugar and citrus and proofed tall — closer to panettone than to a salt-and-oil slab." },
+// ---- Beyond the dials: fixed recipes -------------------------------------
+// These focacce break the dial model — unleavened, or enriched/sweet with eggs,
+// butter, sugar and fruit the sliders don't cover. So instead of faking them
+// with dials, each carries its own full recipe + method, scaled by the flour
+// master input. `bp(f, pct)` is a baker's-percentage gram weight.
+const bp = (f, pct, dp = 0) => round(f * pct / 100, dp);
+const num = (steps) => steps.map((s, i) => ({ ...s, n: String(i + 1).padStart(2, "0") }));
+
+const SPECIAL_STYLES = [
+  { id: "recco", name: "Focaccia di Recco", tag: "unleavened · cheese",
+    blurb: "From Recco on the Ligurian coast: NO yeast, no rise. Two paper-thin sheets of bare oil-and-flour dough are stretched translucent around lumps of molten crescenza, sealed, torn for vents, and blistered in a screaming oven. Cracker-crisp and oozing — eaten the instant it leaves the oven.",
+    recipe: (f) => ({
+      clock: "~45 min",
+      profile: ["unleavened", "cracker-thin sheets", "molten crescenza", "blistered & crisp", "ready in ~45 min"],
+      groups: [
+        { title: "Dough — no yeast", caption: "knead firm & elastic, rest, then stretch paper-thin", items: [
+          { k: "Flour (00 or bread)", g: bp(f, 100), pct: 100 },
+          { k: "Water", g: bp(f, 50), pct: 50 },
+          { k: "Olive oil", g: bp(f, 8), pct: 8, note: "into the dough + more for the surface" },
+          { k: "Salt", g: bp(f, 2, 1), pct: 2 },
+        ] },
+        { title: "Filling — the whole point", caption: "soft, tangy, melts to a pool", brine: true, items: [
+          { k: "Crescenza / stracchino", g: bp(f, 130), pct: 130, accent: true, note: "or another young, soft, tangy cheese" },
+        ] },
+        { title: "Finish", items: [
+          { k: "Olive oil", g: null, pct: null, note: "brushed over the top sheet" },
+          { k: "Flaky salt", g: null, pct: null, note: "scattered before baking" },
+        ] },
+      ],
+      summary: [
+        { label: "Dough (2 sheets)", val: `${round(f + bp(f, 50) + bp(f, 8) + bp(f, 2))}g` },
+        { label: "Cheese filling", val: `${bp(f, 130)}g` },
+        { label: "Oven", val: "as hot as it goes" },
+        { label: "Bake", val: "6–8 min" },
+      ],
+      steps: num([
+        { title: "Make the dough", spec: "flour + water + oil + salt · knead 8–10 min to smooth & elastic",
+          why: "No yeast at all — Recco is unleavened. Knead a firm, smooth, strongly elastic dough; you need well-developed gluten so it can later be pulled translucent without tearing.",
+          more: "A little oil in the dough helps it stretch; keep the rest for the surface." },
+        { title: "Rest — 30 min, covered", spec: "let the gluten relax fully",
+          why: "Cover and rest at least 30 minutes. Resting lets the gluten relax so the dough stretches paper-thin instead of snapping back.",
+          more: "An hour is even better; the dough should feel slack and yielding before you pull it." },
+        { title: "Stretch two paper-thin sheets", spec: "divide ~45/55 · stretch over your knuckles until translucent",
+          why: "Divide in two, the top piece slightly larger. Stretch each over the backs of your hands (like strudel or filo) until you can almost read through it — each sheet bigger than your pan.",
+          more: "Work on lightly oiled hands; a few small holes are fine, you'll cover them." },
+        { title: "Lay the base & dot the cheese", spec: "oiled pan · bottom sheet · walnut-size lumps of crescenza",
+          why: "Drape the bottom sheet into a well-oiled pan (or onto an oiled tray), letting it overhang the rim. Dot walnut-size pieces of crescenza in rows a couple of centimetres apart.",
+          more: "Don't spread the cheese — leave gaps so the two sheets can weld together between the lumps." },
+        { title: "Cap, seal & tear vents", spec: "top sheet over · press around each lump · pinch off the rim · tear holes",
+          why: "Lay the top sheet over, press it down around each lump of cheese, then run a finger around the rim to seal and tear off the overhang. Pinch or tear a few holes across the top so steam escapes and the surface blisters instead of ballooning.",
+          more: "The torn holes are where the cheese caramelises and the sheet crisps — be generous with them." },
+        { title: "Bake — as hot as it goes", spec: "270–300°C / 520–570°F · preheated steel/stone · 6–8 min",
+          why: "Brush with oil, scatter flaky salt, and bake in the hottest oven you have, ideally onto a preheated steel or stone. It's done in minutes — blistered and golden-brown in patches, the cheese molten beneath.",
+          more: "Restaurants use 300°C+ wood ovens; give a home oven its full preheat and the top rack near the element." },
+        { title: "Serve at once", spec: "cut in squares · eat hot",
+          why: "Recco waits for no one — cut and eat while the cheese is still molten and the sheets shatter-crisp. It turns leathery as it cools, so it's never made ahead." },
+      ]),
+    }) },
+
+  { id: "uva", name: "Schiacciata all'uva", tag: "Tuscan · sweet",
+    blurb: "A Tuscan harvest (vendemmia) sweet: a lightly sweetened, lightly leavened dough layered with wine grapes — uva fragola or Canaiolo, used whole, seeds and all — sugar and oil, baked until the fruit collapses into jammy, must-stained pockets. A rustic dessert focaccia.",
+    recipe: (f) => ({
+      clock: "~3 hr",
+      profile: ["lightly leavened", "sweet & jammy", "wine-grape must", "two grape layers", "harvest dessert"],
+      groups: [
+        { title: "Dough — sweet, lightly leavened", caption: "soft and just sweet — the grapes do the rest", items: [
+          { k: "Flour (bread or 00)", g: bp(f, 100), pct: 100 },
+          { k: "Water", g: bp(f, 58), pct: 58 },
+          { k: "Olive oil", g: bp(f, 10), pct: 10, note: "in the dough + to drizzle" },
+          { k: "Sugar", g: bp(f, 8, 1), pct: 8, note: "in the dough" },
+          { k: "Instant yeast", g: bp(f, 1, 2), pct: 1 },
+          { k: "Salt", g: bp(f, 1.2, 1), pct: 1.2, note: "kept low — it's a sweet" },
+        ] },
+        { title: "Grapes & sugar — the topping", caption: "half hidden in the middle, half on top", brine: true, items: [
+          { k: "Wine grapes", g: bp(f, 90), pct: 90, accent: true, note: "uva fragola / Canaiolo / Concord — whole, seeds & all" },
+          { k: "Sugar — to scatter", g: bp(f, 12, 1), pct: 12, accent: true, note: "between the layers and over the top" },
+        ] },
+        { title: "Finish", items: [
+          { k: "Olive oil", g: null, pct: null, note: "drizzled over before baking" },
+          { k: "Rosemary or anise seeds", g: null, pct: null, note: "optional, traditional" },
+        ] },
+      ],
+      summary: [
+        { label: "Total dough", val: `${round(f + bp(f, 58) + bp(f, 10) + bp(f, 8) + bp(f, 1) + bp(f, 1.2))}g` },
+        { label: "Grapes", val: `${bp(f, 90)}g` },
+        { label: "Oven", val: "190–200°C / 375–400°F" },
+        { label: "Bake", val: "35–45 min" },
+      ],
+      steps: num([
+        { title: "Mix & first rise", spec: "flour + water + yeast + sugar + salt + oil · knead · rise 1.5–2 hr",
+          why: "A lightly sweetened bread dough. Mix everything, knead to a soft, smooth dough, and let it rise warm until doubled — about 1.5–2 hours. Keep the salt low; the grapes and sugar carry the flavour.",
+          more: "A little more sugar feeds the yeast; don't overdo it or the rise drags." },
+        { title: "Prep the grapes", spec: "wash & de-stem · classically seeded wine grapes, used whole",
+          why: "Traditionally uva fragola ('strawberry grape') or Canaiolo — small, intense wine grapes used whole, seeds and all; the seeds are part of the rustic character. Concord grapes are the closest supermarket stand-in.",
+          more: "If you'd rather not eat seeds, halve and seed them — you'll lose a little of the jammy structure but it's still good." },
+        { title: "Base layer", spec: "half the dough in an oiled pan · half the grapes · sugar + oil",
+          why: "Press half the dough into a well-oiled pan. Scatter half the grapes over it, then some of the sugar and a drizzle of oil — this hidden middle layer bleeds must through the crumb as it bakes." },
+        { title: "Top layer & remaining grapes", spec: "second half over · press the rest of the grapes in · sugar + oil",
+          why: "Roll or press the second piece of dough over the top, press the remaining grapes into the surface, and scatter the rest of the sugar and a little more oil (a few rosemary needles or a pinch of anise, if you like)." },
+        { title: "Second rise — 30–45 min", spec: "let it puff again under the fruit",
+          why: "A short second rise so the dough bakes up light, not dense, under the weight of the grapes." },
+        { title: "Bake", spec: "190–200°C / 375–400°F · 35–45 min",
+          why: "Bake until deep golden and the grapes have collapsed into jammy, bubbling pockets, their juice caramelising into the crumb.",
+          more: "Set a tray underneath — the grape juice loves to run over." },
+        { title: "Cool & set", spec: "let the juices set · serve warm or at room temp",
+          why: "Let it cool enough for the grape must to set into the crumb. It's eaten as a snack or dessert through the autumn grape harvest." },
+      ]),
+    }) },
+
+  { id: "veneta", name: "Fugassa veneta", tag: "enriched · Easter",
+    blurb: "The Venetian Easter focaccia — an enriched, multi-stage sweet dough built like a panettone: eggs and yolks, butter, sugar, citrus zest and vanilla (often a splash of grappa), proofed tall in a mold and crowned with pearl sugar and almonds. Soft, airy, fragrant; it matures over a day.",
+    recipe: (f) => ({
+      clock: "~10–12 hr",
+      profile: ["enriched & sweet", "eggs · butter · sugar", "citrus & vanilla", "panettone cousin", "Venetian Easter"],
+      groups: [
+        { title: "Enriched dough", caption: "built in stages so the gluten survives the fat & sugar", items: [
+          { k: "Flour (strong / bread)", g: bp(f, 100), pct: 100 },
+          { k: "Butter — soft", g: bp(f, 28), pct: 28, note: "added last, a little at a time" },
+          { k: "Sugar", g: bp(f, 25), pct: 25 },
+          { k: "Eggs + yolks", g: bp(f, 30), pct: 30, note: "yolk-rich for colour & tenderness" },
+          { k: "Milk or water", g: bp(f, 25), pct: 25 },
+          { k: "Fresh yeast", g: bp(f, 3, 1), pct: 3, note: "≈1% if instant · worked across the builds" },
+          { k: "Honey or malt", g: bp(f, 3, 1), pct: 3, note: "optional — feeds yeast, keeps it moist" },
+          { k: "Salt", g: bp(f, 1, 1), pct: 1 },
+        ] },
+        { title: "Aromatics & crown", caption: "the unmistakable fugassa perfume", brine: true, items: [
+          { k: "Vanilla + orange & lemon zest", g: null, pct: null, accent: true, note: "a splash of grappa or marsala, traditionally" },
+          { k: "Pearl sugar (granella)", g: null, pct: null, accent: true, note: "scattered on top" },
+          { k: "Almonds", g: null, pct: null, accent: true, note: "whole or sliced, with the sugar" },
+        ] },
+      ],
+      summary: [
+        { label: "Total dough", val: `${round(f + bp(f, 28) + bp(f, 25) + bp(f, 30) + bp(f, 25) + bp(f, 3) + bp(f, 3) + bp(f, 1))}g` },
+        { label: "Build", val: "3-stage, like panettone" },
+        { label: "Oven", val: "170–180°C / 340–355°F" },
+        { label: "Bake", val: "35–45 min" },
+      ],
+      steps: num([
+        { title: "Sponge — build the yeast", spec: "¼ of the flour + the yeast + the milk · ferment until tripled (2–4 hr or overnight)",
+          why: "Fugassa is an enriched, multi-stage dough like panettone. Start a soft sponge — about a quarter of the flour, the yeast and the milk — and let it triple. The pre-ferment builds the strength and aroma to carry all the fat and sugar to come.",
+          more: "An overnight sponge in the fridge deepens the flavour and fits the long process into two days." },
+        { title: "Second dough", spec: "add half the remaining flour + some sugar + the eggs · develop · rest 1–2 hr",
+          why: "Add flour, part of the sugar and the eggs, and work it to a strong, elastic dough; rest until risen again. Building the enrichment in stages keeps the gluten from being swamped by fat and sugar all at once." },
+        { title: "Final dough + butter", spec: "rest of flour, sugar, yolks, salt, aromatics · then soft butter a little at a time",
+          why: "Add the last of the flour, sugar, yolks, salt and the aromatics (vanilla, citrus zest, a splash of grappa). Develop to a smooth windowpane, then beat in the soft butter a little at a time until the dough is glossy and elastic again.",
+          more: "Keep the dough cool (~24°C/75°F); too warm and the butter greases out. This is the longest mixing stage." },
+        { title: "Bulk proof", spec: "warm · until doubled (2–4 hr)",
+          why: "A long, warm bulk rise — enriched doughs are slow because the sugar and fat hold the yeast back." },
+        { title: "Shape & mold", spec: "round it tight · into a star/panettone mold",
+          why: "Shape into a tight ball to build surface tension, then drop it into a paper panettone mold or a star-shaped fugassa tin (or dome it on a tray)." },
+        { title: "Final proof", spec: "warm · until risen to the rim (3–5 hr)",
+          why: "Proof until it has risen to the top of the mold and wobbles — enriched doughs need a long, patient final proof to bake up tall and airy." },
+        { title: "Top & bake", spec: "egg wash · pearl sugar + almonds · 170–180°C / 340–355°F · 35–45 min",
+          why: "Brush with egg, scatter the pearl sugar and almonds (the classic granella crown), and bake low-and-slow so the rich crumb cooks through without scorching the sugar.",
+          more: "Tent with foil if it colours too fast; it's done at about 92°C/198°F inside." },
+        { title: "Cool fully — or hang", spec: "like panettone · cool before cutting · matures overnight",
+          why: "Cool completely before cutting — ideally inverted or hung like panettone so the tall, airy crumb doesn't collapse. The flavour deepens over a day, and it keeps well wrapped." },
+      ]),
+    }) },
 ];
+const SPECIAL_BY_ID = Object.fromEntries(SPECIAL_STYLES.map((s) => [s.id, s]));
 
 function matchStyle(cur) {
   const hit = STYLES.find((s) => STYLE_KEYS.every((k) => s.set[k] === cur[k]));
@@ -374,17 +525,20 @@ export default function FocacciaBuildSheet() {
   const [verbosity, setVerbosity] = useState(1);
   const [dark, setDark] = useState(false);
   const [openStep, setOpenStep] = useState("01");
+  const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
 
   const C = dark ? THEMES.dark : THEMES.light;
 
   function applyStyle(id) {
     const s = STYLE_BY_ID[id];
     if (!s) return;
+    setSpecial(null);
     const k = s.set;
     setHydration(k.hydration); setSchIdx(k.schIdx); setFolds(k.folds);
     setPanOilPct(k.panOilPct); setDoughOilPct(k.doughOilPct);
     setSaltPct(k.saltPct); setSemolinaPct(k.semolinaPct); setTwoPans(k.twoPans);
   }
+  function applySpecial(id) { setSpecial(id); setOpenStep("01"); }
   const toggleTopping = (id) => setToppingSel((t) => ({ ...t, [id]: !t[id] }));
   const togglePrep = (key) => setPrepDone((p) => ({ ...p, [key]: !p[key] }));
   const activeStyle = matchStyle({ hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans });
@@ -425,7 +579,10 @@ export default function FocacciaBuildSheet() {
     return { sem, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
   }, [f, hydration, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType]);
 
-  const groups = [
+  const specialDef = special ? SPECIAL_BY_ID[special] : null;
+  const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
+
+  const dialGroups = [
     { title: "Dough", items: [
       { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) },
       ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
@@ -456,10 +613,10 @@ export default function FocacciaBuildSheet() {
   ];
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
+  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
     [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, verbosity, tomatoOn, tomatoMode, tomatoPct, f]);
 
-  const profile = [
+  const dialProfile = [
     hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
     sch.tang,
     folds === 0 ? "pillowy, no shred" : folds <= 2 ? "light flaky shred" : "deeply flaky, shreddy",
@@ -469,6 +626,11 @@ export default function FocacciaBuildSheet() {
     saltPct >= 2.6 ? "boldly salted" : saltPct <= 2.0 ? "restrained salt" : "well salted",
     ...(tomatoWater > 0 ? [`≈${round(effHydration)}% effective hydration w/ tomato`] : []),
   ];
+
+  // A fixed recipe (Recco / uva / veneta) overrides the dial-driven output.
+  const groups = specialRecipe ? specialRecipe.groups : dialGroups;
+  const STEPS = specialRecipe ? specialRecipe.steps : dialSteps;
+  const profile = specialRecipe ? specialRecipe.profile : dialProfile;
 
   const showWhy = verbosity >= 1;
 
@@ -483,8 +645,8 @@ export default function FocacciaBuildSheet() {
             <h1 style={{ margin: 0, fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Focaccia</h1>
           </div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, textAlign: "right", color: C.inkSoft, lineHeight: 1.5 }}>
-            <span style={{ color: C.rust, fontWeight: 600 }}>{activeStyle === "custom" ? "Custom build" : STYLE_BY_ID[activeStyle].name}</span><br />
-            {hydration}% hydration · {sch.clock}
+            <span style={{ color: C.rust, fontWeight: 600 }}>{specialDef ? specialDef.name : activeStyle === "custom" ? "Custom build" : STYLE_BY_ID[activeStyle].name}</span><br />
+            {specialRecipe ? `fixed recipe · ${specialRecipe.clock}` : `${hydration}% hydration · ${sch.clock}`}
           </div>
         </div>
 
@@ -499,7 +661,7 @@ export default function FocacciaBuildSheet() {
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, margin: "0 2px 6px" }}>{cat}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
                 {STYLES.filter((s) => s.cat === cat).map((s) => {
-                  const on = activeStyle === s.id;
+                  const on = !special && activeStyle === s.id;
                   return (
                     <button key={s.id} onClick={() => applyStyle(s.id)} style={{
                       display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
@@ -518,25 +680,39 @@ export default function FocacciaBuildSheet() {
               </div>
             </div>
           ))}
-          <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${activeStyle === "custom" ? C.line : C.crust}`, paddingLeft: 12 }}>
-            {activeStyle === "custom"
+          {/* Beyond the dials — fixed recipes that don't run off the sliders */}
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, margin: "0 2px 6px" }}>
+              Beyond the dials · fixed recipes
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+              {SPECIAL_STYLES.map((s) => {
+                const on = special === s.id;
+                return (
+                  <button key={s.id} onClick={() => applySpecial(s.id)} style={{
+                    display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
+                    borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
+                    border: `1.5px solid ${on ? C.rust : C.line}`, background: on ? C.rust : C.card, color: on ? C.onAccent : C.ink }}>
+                    <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
+                      {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
+                    </span>
+                    <span style={{ lineHeight: 1.25 }}>
+                      <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{s.name}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, opacity: 0.8 }}>{s.tag}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${special ? C.rust : activeStyle === "custom" ? C.line : C.crust}`, paddingLeft: 12 }}>
+            {specialDef
+              ? specialDef.blurb
+              : activeStyle === "custom"
               ? "Custom — you've tuned the dials off any single tradition. Pick a style above to snap back to a preset."
               : STYLE_BY_ID[activeStyle].blurb}
           </div>
-
-          {/* Beyond the dials — honest about what this model can't fake */}
-          <details style={{ marginTop: 12, background: C.card, border: `1.5px dashed ${C.line}`, borderRadius: 11, padding: "10px 14px" }}>
-            <summary style={{ cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, letterSpacing: 0.5, color: C.inkSoft, fontWeight: 600 }}>
-              ▸ Beyond the dials — focacce that need a different method
-            </summary>
-            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-              {OFF_MODEL.map((o) => (
-                <div key={o.name} style={{ fontSize: 13.5, lineHeight: 1.45, color: C.inkSoft }}>
-                  <span style={{ fontWeight: 600, color: C.ink, fontFamily: "'Fraunces', serif" }}>{o.name}</span> — {o.note}
-                </div>
-              ))}
-            </div>
-          </details>
         </div>
 
         {/* Flour master input */}
@@ -559,7 +735,20 @@ export default function FocacciaBuildSheet() {
           </div>
         </div>
 
-        {/* The dials */}
+        {/* Fixed-recipe banner — the dials don't apply here */}
+        {special && (
+          <div style={{ background: C.brineBg, border: `1.5px solid ${C.rust}`, borderRadius: 12, padding: "12px 15px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, lineHeight: 1.45, color: C.ink }}>
+              <strong>{specialDef.name}</strong> is a fixed recipe — it doesn't run off the sliders. Only the flour scale, detail and theme apply. The full method is below.
+            </span>
+            <button onClick={() => applyStyle(DEFAULT_STYLE)} style={{ flexShrink: 0, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 600, padding: "7px 13px", borderRadius: 20, border: `1.5px solid ${C.rust}`, background: "transparent", color: C.rust, cursor: "pointer" }}>
+              ← back to the dials
+            </button>
+          </div>
+        )}
+
+        {/* The dials (dial-driven styles only) */}
+        {!special && <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "4px 2px 10px" }}>
           <span>The dials</span>
         </div>
@@ -705,6 +894,7 @@ export default function FocacciaBuildSheet() {
             })}
           </div>
         )}
+        </>}
 
         {/* Display options: verbosity + dark mode */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
@@ -768,16 +958,22 @@ export default function FocacciaBuildSheet() {
 
         {/* Yield summary */}
         <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" }}>
-          <div style={summaryCard(C)}><div style={summaryLabel(C)}>Total dough</div><div style={summaryVal(C)}>{round(v.doughWeight)}g</div></div>
-          <div style={summaryCard(C)}><div style={summaryLabel(C)}>{twoPans ? "Per pan (×2)" : "Single pan"}</div><div style={summaryVal(C)}>{round(perPan)}g</div></div>
-          <div style={summaryCard(C)}><div style={summaryLabel(C)}>Total olive oil</div><div style={summaryVal(C)}>{round(v.totalOil)}g</div></div>
-          <div style={summaryCard(C)}><div style={summaryLabel(C)}>Suggested pan</div><div style={{ ...summaryVal(C), fontSize: 17 }}>{panHint(perPan)}</div></div>
+          {specialRecipe
+            ? specialRecipe.summary.map((c) => (
+                <div key={c.label} style={summaryCard(C)}><div style={summaryLabel(C)}>{c.label}</div><div style={{ ...summaryVal(C), fontSize: /\d/.test(c.val) && c.val.length <= 6 ? 22 : 15 }}>{c.val}</div></div>
+              ))
+            : <>
+                <div style={summaryCard(C)}><div style={summaryLabel(C)}>Total dough</div><div style={summaryVal(C)}>{round(v.doughWeight)}g</div></div>
+                <div style={summaryCard(C)}><div style={summaryLabel(C)}>{twoPans ? "Per pan (×2)" : "Single pan"}</div><div style={summaryVal(C)}>{round(perPan)}g</div></div>
+                <div style={summaryCard(C)}><div style={summaryLabel(C)}>Total olive oil</div><div style={summaryVal(C)}>{round(v.totalOil)}g</div></div>
+                <div style={summaryCard(C)}><div style={summaryLabel(C)}>Suggested pan</div><div style={{ ...summaryVal(C), fontSize: 17 }}>{panHint(perPan)}</div></div>
+              </>}
         </div>
 
         {/* Process */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 12 }}>
           <span>Process{showWhy ? " — tap for the why" : ""}</span>
-          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{sch.clock}{express ? " + bake" : ""}</span>
+          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{specialRecipe ? specialRecipe.clock : `${sch.clock}${express ? " + bake" : ""}`}</span>
         </div>
 
         {STEPS.map((s) => {
@@ -802,7 +998,7 @@ export default function FocacciaBuildSheet() {
         })}
 
         {/* Cherry-tomato pan note */}
-        {twoPans && toppingSel.tomato && (
+        {!special && twoPans && toppingSel.tomato && (
           <div style={{ marginTop: 22, background: C.card, border: `1.5px dashed ${C.rust}`, borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 4 }}>🍅 Cherry-tomato pan</div>
             <div style={{ fontSize: 15, lineHeight: 1.55, color: C.inkSoft }}>
