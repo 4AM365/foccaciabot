@@ -67,26 +67,68 @@ const SCHEDULES = [
 ];
 
 // ---- Styles: curated presets that drive every dial at once -----------------
+// `cat` groups the buttons. Every style here is one the dial model can render
+// faithfully (yeasted, oil-based). Famous focacce that need a *different*
+// method — unleavened, sweet, enriched — live in OFF_MODEL below, described
+// honestly rather than faked with the dials.
 const STYLES = [
-  { id: "flaky", name: "Flaky (hot-rod)", tag: "laminated · fried",
+  // ---- The house ----
+  { id: "flaky", cat: "The house", name: "Flaky (hot-rod)", tag: "laminated · fried",
     blurb: "The house build: a 3-day cold ferment, oiled lamination folds for a shreddy pull, and a deep pan-fry. Dough kept lean so the fat works the layers and the base, not the crumb.",
     set: { hydration: 82, schIdx: 3, folds: 3, panOilPct: 10, doughOilPct: 0, saltPct: 2.4, semolinaPct: 5, twoPans: true } },
-  { id: "genovese", name: "Genovese", tag: "classic Ligurian",
-    blurb: "The archetype. Thinner and oily, with ~6% oil worked into a tender crumb and a briny salamoia pooled in the dimples. Pillowy, not flaky; made same-day.",
-    set: { hydration: 72, schIdx: 0, folds: 0, panOilPct: 9, doughOilPct: 6, saltPct: 2.0, semolinaPct: 0, twoPans: false } },
-  { id: "romana", name: "Romana alla pala", tag: "light · airy",
-    blurb: "Long, cold-fermented and very wet — a tall, wildly open, custardy crumb with a crisp, blistered top. Lean and restrained; the ferment does the flavour.",
-    set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 7, doughOilPct: 3, saltPct: 2.4, semolinaPct: 5, twoPans: false } },
-  { id: "barese", name: "Pugliese · Barese", tag: "semola · tomato",
-    blurb: "Durum-semolina dough (golden, sandy crust), high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf.",
-    set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 4, saltPct: 2.2, semolinaPct: 15, twoPans: true } },
-  { id: "sameday", name: "Same-day", tag: "weeknight",
+  { id: "sameday", cat: "The house", name: "Same-day", tag: "weeknight",
     blurb: "Two hours, start to bake. Balanced and lightly enriched, leaning on warmth and a touch more yeast — no long ferment, no fuss.",
     set: { hydration: 78, schIdx: 0, folds: 1, panOilPct: 8, doughOilPct: 4, saltPct: 2.3, semolinaPct: 0, twoPans: false } },
+
+  // ---- Classic Italian ----
+  { id: "genovese", cat: "Classic Italian", name: "Genovese", tag: "classic Ligurian",
+    blurb: "The archetype. Thinner and oily, with ~6% oil worked into a tender crumb and a briny salamoia pooled in the dimples. Pillowy, not flaky; made same-day.",
+    set: { hydration: 72, schIdx: 0, folds: 0, panOilPct: 9, doughOilPct: 6, saltPct: 2.0, semolinaPct: 0, twoPans: false } },
+  { id: "romana", cat: "Classic Italian", name: "Romana alla pala", tag: "light · airy",
+    blurb: "Long, cold-fermented and very wet — a tall, wildly open, custardy crumb with a crisp, blistered top. Lean and restrained; the ferment does the flavour.",
+    set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 7, doughOilPct: 3, saltPct: 2.4, semolinaPct: 5, twoPans: false } },
+  { id: "barese", cat: "Classic Italian", name: "Pugliese · Barese", tag: "semola · tomato",
+    blurb: "Durum-semolina dough (golden, sandy crust), high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf.",
+    set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 4, saltPct: 2.2, semolinaPct: 15, twoPans: true } },
+
+  // ---- Regional & obscure ----
+  { id: "sardenaira", cat: "Regional & obscure", name: "Sardenaira", tag: "Sanremo · anchovy",
+    blurb: "Sanremo's tomato focaccia — a.k.a. pizza all'Andrea. A leavened flatbread spread with a garlicky tomato sauce, then studded with Taggiasca olives, salt-packed anchovies, capers and oregano. The Ligurian western-Riviera answer to pizza.",
+    set: { hydration: 70, schIdx: 1, folds: 0, panOilPct: 8, doughOilPct: 3, saltPct: 2.2, semolinaPct: 0, twoPans: false } },
+  { id: "sfincione", cat: "Regional & obscure", name: "Sfincione", tag: "Palermo · spongy",
+    blurb: "Palermo's thick, spongy street focaccia. A soft, high-hydration crumb under a sauce of onion, tomato and anchovy with caciocavallo — finished with toasted breadcrumbs (pangrattato) on top instead of cheese. Pillowy and savoury, sold by the slab.",
+    set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 5, saltPct: 2.2, semolinaPct: 0, twoPans: false } },
+  { id: "messinese", cat: "Regional & obscure", name: "Focaccia messinese", tag: "Messina · escarole",
+    blurb: "From Messina: a Sicilian focaccia layered with tuma cheese, curly endive (scarola), anchovies and a little tomato. Rich and green-bitter, a cousin of the sfincione baked soft and deep.",
+    set: { hydration: 75, schIdx: 1, folds: 0, panOilPct: 8, doughOilPct: 4, saltPct: 2.2, semolinaPct: 0, twoPans: false } },
+  { id: "schiacciata", cat: "Regional & obscure", name: "Schiacciata toscana", tag: "Tuscan · thin",
+    blurb: "Tuscany's 'squashed' bread. Thinner, crisper and leaner than its northern cousins: rolled low, dimpled, heavily oiled and salted, usually just rosemary. The savoury sibling of the sweet schiacciata all'uva.",
+    set: { hydration: 66, schIdx: 0, folds: 0, panOilPct: 8, doughOilPct: 3, saltPct: 2.0, semolinaPct: 0, twoPans: false } },
+  { id: "pizzabianca", cat: "Regional & obscure", name: "Pizza bianca romana", tag: "Rome · blistered",
+    blurb: "Roman pizza bianca — a long, wildly blistered, very wet dough stretched on the peel, slicked with oil and salt and torn warm. Lean and long-fermented; the bakery staple that becomes pizza rossa with a swipe of tomato.",
+    set: { hydration: 85, schIdx: 2, folds: 0, panOilPct: 7, doughOilPct: 2, saltPct: 2.3, semolinaPct: 0, twoPans: false } },
+  { id: "pinsa", cat: "Regional & obscure", name: "Pinsa romana", tag: "oval · airy",
+    blurb: "The modern Roman pinsa: an oval, ultra-light flatbread from a blend of wheat, rice and soy flours at very high hydration and a 48–72 hr cold rise — crisp shell, cloud crumb, famously digestible. The dials model the method; the rice/soy blend (~20%) you'd swap in yourself.",
+    set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 6, doughOilPct: 3, saltPct: 2.4, semolinaPct: 0, twoPans: false } },
+  { id: "fougasse", cat: "Regional & obscure", name: "Fougasse provençale", tag: "France · leaf",
+    blurb: "Provence's fougasse — the French focaccia, slashed into a leaf or ladder so it's nearly all crust. Olive oil, herbes de Provence, often olives or lardons. Lower hydration so the open lattice holds its shape.",
+    set: { hydration: 70, schIdx: 1, folds: 0, panOilPct: 7, doughOilPct: 4, saltPct: 2.2, semolinaPct: 0, twoPans: false } },
 ];
+const STYLE_CATS = ["The house", "Classic Italian", "Regional & obscure"];
 const STYLE_BY_ID = Object.fromEntries(STYLES.map((s) => [s.id, s]));
 const DEFAULT_STYLE = "flaky";
 const STYLE_KEYS = ["hydration", "schIdx", "folds", "panOilPct", "doughOilPct", "saltPct", "semolinaPct", "twoPans"];
+
+// Famous focacce the dial model can't represent honestly — they need a wholly
+// different method (no yeast, or enriched/sweet). Listed, not faked.
+const OFF_MODEL = [
+  { name: "Focaccia di Recco (col formaggio)",
+    note: "Unleavened: two paper-thin sheets of bare oil-and-flour dough around molten stracchino/crescenza, blistered in a screaming oven. No yeast, no rise — the ferment dials simply don't apply." },
+  { name: "Schiacciata all'uva",
+    note: "Tuscan harvest sweet: wine grapes, sugar and oil pressed into a lightly sweetened dough and baked into a jammy, seedy slab. A dessert focaccia." },
+  { name: "Fugassa veneta",
+    note: "Venetian Easter focaccia enriched with eggs, butter, sugar and citrus and proofed tall — closer to panettone than to a salt-and-oil slab." },
+];
 
 function matchStyle(cur) {
   const hit = STYLES.find((s) => STYLE_KEYS.every((k) => s.set[k] === cur[k]));
@@ -96,28 +138,63 @@ function matchStyle(cur) {
 // ---- Traditional toppings & herbs ------------------------------------------
 // `styles` = which traditions a topping is classic for (drives the badge).
 // `short` = one-line prep (always shown in the table). `prep` = full method
-// (shown in the process step at Detailed verbosity).
+// (shown in the process step at Detailed verbosity). `prepSteps` = the tickable
+// mise-en-place checklist. `water:true` flags a topping that weeps moisture into
+// the crumb (cherry tomatoes) so it can be folded into effective hydration.
 const TOPPINGS = [
-  { id: "rosemary", icon: "🌿", label: "Rosemary", styles: ["flaky", "genovese", "romana", "barese", "sameday"],
+  { id: "rosemary", icon: "🌿", label: "Rosemary", styles: ["flaky", "genovese", "romana", "barese", "sameday", "schiacciata", "pizzabianca", "fougasse"],
     short: "needles pressed in & oiled at dimpling",
-    prep: "Strip the needles (or keep small sprigs). Press them into the dough at dimpling and coat with the brine oil so they don't scorch — woody herbs burn fast on top of a 230–260°C bake." },
-  { id: "tomato", icon: "🍅", label: "Cherry tomatoes", styles: ["flaky", "barese", "sameday"],
-    short: "halved, cut-side up in the wells",
-    prep: "Halve and press cut-side up into the wells at dimpling so they roast in the oil rather than steam. For deeper flavour, pre-roast (or crush & roast) them first — that concentrates the glutamate and sugars and builds Maillard browning — then add for the 450°F phase, slicked with brine oil so the already-caramelised sugars don't scorch." },
-  { id: "olives", icon: "🫒", label: "Olives", styles: ["genovese", "barese"],
+    prep: "Strip the needles (or keep small sprigs). Press them into the dough at dimpling and coat with the brine oil so they don't scorch — woody herbs burn fast on top of a 230–260°C bake.",
+    prepSteps: ["Strip needles or keep small sprigs", "Press into the dough at dimpling", "Coat with brine oil so they don't scorch"] },
+  { id: "tomato", icon: "🍅", label: "Cherry tomatoes", styles: ["flaky", "barese", "sameday", "sardenaira", "sfincione", "messinese"],
+    short: "halved, cut-side up in the wells", water: true,
+    prep: "Halve and press cut-side up into the wells at dimpling so they roast in the oil rather than steam. For deeper flavour, smash & roast them first — that concentrates the glutamate and sugars and builds Maillard browning — then add for the 450°F phase, slicked with brine oil so the already-caramelised sugars don't scorch. Either way they're ~95% water and weep into the crumb, so account for that in your hydration (see the tomato panel).",
+    prepSteps: ["Halve the tomatoes", "Press cut-side up into the oiled wells", "Slick with brine oil before baking"] },
+  { id: "olives", icon: "🫒", label: "Olives", styles: ["genovese", "barese", "sardenaira", "fougasse"],
     short: "pitted, patted dry, pressed in",
-    prep: "Use good brined olives (Taggiasca, Cerignola), pitted and patted dry so surface brine doesn't make wet spots. Press them into the dough at dimpling." },
-  { id: "onion", icon: "🧅", label: "Red onion", styles: ["barese", "sameday"],
+    prep: "Use good brined olives (Taggiasca, Cerignola), pitted and patted dry so surface brine doesn't make wet spots. Press them into the dough at dimpling.",
+    prepSteps: ["Pit good brined olives (Taggiasca / Cerignola)", "Pat dry so brine doesn't wet the dough", "Press in at dimpling"] },
+  { id: "anchovy", icon: "🐟", label: "Anchovies", styles: ["sardenaira", "sfincione", "messinese"],
+    short: "rinsed, boned, laid in the sauce",
+    prep: "Salt-packed anchovies are best: rinse off the salt, fillet and bone them (oil-packed work too — just pat off the excess). Lay them into the tomato/onion sauce or straight onto the oiled dough, where they dissolve and season the whole slab rather than sitting as fish on top.",
+    prepSteps: ["Rinse salt-packed fillets (or pat oil-packed dry)", "Bone and split into fillets", "Lay into the sauce / on the dough before baking"] },
+  { id: "capers", icon: "🧂", label: "Capers", styles: ["sardenaira"],
+    short: "rinsed, scattered before baking",
+    prep: "Rinse salt- or brine-packed capers to tame the punch, pat them dry, and scatter over the sauce before baking — classic in sardenaira alongside the olives and anchovy.",
+    prepSteps: ["Rinse off the packing salt / brine", "Pat dry", "Scatter over the sauce before baking"] },
+  { id: "onion", icon: "🧅", label: "Red onion", styles: ["barese", "sameday", "sfincione"],
     short: "thin, oiled, scattered at dimpling",
-    prep: "Slice thin, then toss with a little oil and a pinch of salt to soften and shield from burning (a 10-min cold-water soak tames the bite). Scatter at dimpling — thin slices crisp, thick ones steam." },
-  { id: "garlic", icon: "🧄", label: "Garlic (in the oil)", styles: ["flaky", "genovese", "romana", "barese", "sameday"],
+    prep: "Slice thin, then toss with a little oil and a pinch of salt to soften and shield from burning (a 10-min cold-water soak tames the bite). Scatter at dimpling — thin slices crisp, thick ones steam. For sfincione, slow-cook them down into the sauce first.",
+    prepSteps: ["Slice thin", "(optional) 10-min cold-water soak to tame the bite", "Toss with oil + a pinch of salt", "Scatter at dimpling"] },
+  { id: "cheese", icon: "🧀", label: "Soft cheese", styles: ["sfincione", "messinese"],
+    short: "cubed/torn, tucked in late",
+    prep: "Caciocavallo or tuma for the Sicilian styles (stracchino if you're chasing a Recco-style ooze). Cube or tear it and tuck it in toward the end of the bake so it melts through without weeping oil and scorching.",
+    prepSteps: ["Cube or tear the cheese", "Add for the cooler second bake phase", "Let it melt — don't let it brown hard"] },
+  { id: "breadcrumbs", icon: "🍞", label: "Toasted breadcrumbs", styles: ["sfincione"],
+    short: "pangrattato showered on top",
+    prep: "The sfincione signature: toast coarse breadcrumbs in olive oil until golden, then shower them over the sauced top (and again after baking) for a savoury, crunchy crust in place of cheese on top.",
+    prepSteps: ["Toast coarse crumbs in olive oil till golden", "Shower over the sauced top before baking", "Add a second handful after the bake"] },
+  { id: "escarole", icon: "🥬", label: "Escarole / endive", styles: ["messinese"],
+    short: "wilted, squeezed dry, layered",
+    prep: "Curly endive or escarole (scarola) for focaccia messinese: blanch or wilt it, squeeze it very dry, and layer it with the cheese and anchovy. Wet greens steam the crumb, so the squeeze is the whole game.",
+    prepSteps: ["Wilt or blanch the greens", "Squeeze very dry", "Layer with cheese and anchovy"] },
+  { id: "garlic", icon: "🧄", label: "Garlic (in the oil)", styles: ["flaky", "genovese", "romana", "barese", "sameday", "sardenaira", "sfincione"],
     short: "infused into the oil, never raw on top",
-    prep: "Don't scatter raw garlic on top — it burns bitter. Warm crushed cloves gently in the pan/brine oil to infuse, then lift them out; brush the infused oil over before baking and again, warm, after." },
-  { id: "oregano", icon: "🌱", label: "Oregano (dried)", styles: ["barese"],
+    prep: "Don't scatter raw garlic on top — it burns bitter. Warm crushed cloves gently in the pan/brine oil to infuse, then lift them out; brush the infused oil over before baking and again, warm, after.",
+    prepSteps: ["Crush the cloves", "Warm gently in the pan/brine oil to infuse", "Lift the cloves out", "Brush the infused oil on before and after baking"] },
+  { id: "oregano", icon: "🌱", label: "Oregano (dried)", styles: ["barese", "sardenaira", "sfincione"],
     short: "dried, scattered with the tomatoes",
-    prep: "Dried oregano scattered with the tomatoes at dimpling — classic Barese. Dried stands up to oven heat; fresh oregano scorches." },
+    prep: "Dried oregano scattered with the tomatoes at dimpling — classic Barese and Sicilian. Dried stands up to oven heat; fresh oregano scorches.",
+    prepSteps: ["Use dried, not fresh", "Scatter with the tomatoes at dimpling"] },
 ];
 const VERBOSITY = ["Terse", "Standard", "Detailed"];
+
+// Cherry tomatoes are ~95% water. These are the fractions of their weight that
+// realistically weep into the crumb during the bake — raw halves dump more;
+// smashing & roasting first drives off some water but you spread the concentrated
+// pulp right onto the dough, so it still meaningfully wets it.
+const TOMATO_WATER = { raw: 0.5, roast: 0.3 };
+const TOMATO_MODES = { raw: "Halved, raw", roast: "Smash & roast" };
 
 function round(n, dp = 0) {
   const f = Math.pow(10, dp);
@@ -192,7 +269,7 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // Process generator — steps adapt to schedule, lamination, hydration, yeast,
 // toppings and verbosity. `more` is extra detail surfaced only at Detailed.
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, verbosity }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, verbosity, tomato }) {
   const express = schIdx === 0;
   const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
@@ -247,10 +324,19 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   steps.push({ title: "Dimple + brine", spec: `oil fingers · press nearly to the pan bottom · brine (≈1:1 water:oil + ${BRINE_SALT}% salt) into the wells`,
     why: `Oil your fingers and drive them straight down almost to the pan — aggressive dimples make the lunar-landscape surface and set high ridges that crunch against soft valleys (shy dimples just bake out). Whisk the salamoia — roughly equal parts water and oil with the fine salt dissolved in — and spoon it so it pools in the wells; the water steams off and concentrates salt and oil into crisp, seasoned pockets.${toppings.length ? " Add your toppings now — see the next step." : ""}` });
 
+  if (tomato && tomato.on && tomato.mode === "roast") {
+    steps.push({ title: "Smash & roast the tomatoes — ahead of time", spec: `${round(tomato.load)}g cherry tomatoes · halved · 200°C/400°F until collapsed & jammy`,
+      why: `Halve the tomatoes, toss with oil and salt, and roast until they collapse and caramelise — this concentrates their glutamate and sugars and builds Maillard depth you can't get from raw fruit in a 20-minute bake. Do it while the dough cold-ferments; cool before they touch the dough.`,
+      more: `Roasting drives off a lot of water, but you then spread the concentrated pulp straight onto the dough — so it still wets the crumb. That's already folded into the effective-hydration figure below.` });
+  }
+
   if (toppings.length) {
     const lines = toppings.map((t) => `${t.icon} ${t.label} — ${verbosity >= 2 ? t.prep : t.short}`).join("\n");
+    const tomatoNote = tomato && tomato.on
+      ? `\n\nNote on the tomatoes: at ${tomato.pct}% of flour (${round(tomato.load)}g), ${tomato.mode === "roast" ? "smashed & roasted" : "raw halves"} weep ≈${round(tomato.water)}g of water into the crumb — that pushes effective hydration from ${hydration}% to ≈${round(tomato.eff)}%. If you want to hold the ${hydration}% crumb, pull the dough water back to ≈${round(tomato.suggested)}% (the tomato panel up top does the math live).`
+      : "";
     steps.push({ title: "Top it", spec: toppings.map((t) => t.label).join(" · "),
-      why: lines,
+      why: lines + tomatoNote,
       more: "Hardy aromatics (rosemary) go on pressed-in and oiled so they don't scorch; finish everything with flaky salt. Anything sugary or already-roasted is happiest added for the cooler second phase." });
   }
 
@@ -282,6 +368,9 @@ export default function FocacciaBuildSheet() {
   const [twoPans, setTwoPans] = useState(D0.twoPans);
   const [yeastType, setYeastType] = useState("instant");
   const [toppingSel, setToppingSel] = useState({ rosemary: true });
+  const [tomatoMode, setTomatoMode] = useState("raw"); // raw | roast
+  const [tomatoPct, setTomatoPct] = useState(20);       // cherry tomatoes as % of flour
+  const [prepDone, setPrepDone] = useState({});         // mise-en-place checklist
   const [verbosity, setVerbosity] = useState(1);
   const [dark, setDark] = useState(false);
   const [openStep, setOpenStep] = useState("01");
@@ -297,12 +386,23 @@ export default function FocacciaBuildSheet() {
     setSaltPct(k.saltPct); setSemolinaPct(k.semolinaPct); setTwoPans(k.twoPans);
   }
   const toggleTopping = (id) => setToppingSel((t) => ({ ...t, [id]: !t[id] }));
+  const togglePrep = (key) => setPrepDone((p) => ({ ...p, [key]: !p[key] }));
   const activeStyle = matchStyle({ hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans });
   const selectedToppings = TOPPINGS.filter((t) => toppingSel[t.id]);
 
   const f = Math.max(0, Number(flour) || 0);
   const sch = SCHEDULES[schIdx];
   const express = schIdx === 0;
+
+  // Cherry tomatoes weep water into the crumb — fold it into effective hydration.
+  const tomatoOn = !!toppingSel.tomato;
+  const tomatoLoad = f * (tomatoPct / 100);
+  const tomatoWater = tomatoOn ? tomatoLoad * TOMATO_WATER[tomatoMode] : 0;
+  const tomatoWaterPct = f > 0 ? (tomatoWater / f) * 100 : 0;
+  const effHydration = hydration + tomatoWaterPct;          // crumb sees this much water
+  const suggestedHyd = Math.max(0, hydration - tomatoWaterPct); // dial here to hold target
+  const tomato = { on: tomatoOn, mode: tomatoMode, pct: tomatoPct, load: tomatoLoad,
+    water: tomatoWater, eff: effHydration, suggested: suggestedHyd };
 
   const v = useMemo(() => {
     const sem = f * (semolinaPct / 100);
@@ -348,12 +448,16 @@ export default function FocacciaBuildSheet() {
       { k: "Fine salt — dissolved in", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true, note: "whisk in until it disappears" },
       { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
     ] },
-    ...(selectedToppings.length ? [{ title: "Toppings & herbs", caption: "to taste · added at dimpling", items: selectedToppings.map((t) => ({ k: `${t.icon} ${t.label}`, g: null, pct: null, note: t.short })) }] : []),
+    ...(selectedToppings.length ? [{ title: "Toppings & herbs", caption: "to taste · added at dimpling", items: selectedToppings.map((t) => (
+      t.id === "tomato"
+        ? { k: `${t.icon} ${t.label}`, g: round(tomatoLoad), pct: tomatoPct, accent: true, note: `${TOMATO_MODES[tomatoMode].toLowerCase()} · ≈${round(tomatoWater)}g water into the crumb` }
+        : { k: `${t.icon} ${t.label}`, g: null, pct: null, note: t.short }
+    )) }] : []),
   ];
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity }),
-    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, verbosity]);
+  const STEPS = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, verbosity, tomatoOn, tomatoMode, tomatoPct, f]);
 
   const profile = [
     hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
@@ -363,6 +467,7 @@ export default function FocacciaBuildSheet() {
     panOilPct >= 10 ? "hard fried base" : panOilPct >= 8 ? "crisp fried base" : "lightly crisp base",
     ...(semolinaPct >= 8 ? ["sandy fracturing crust"] : []),
     saltPct >= 2.6 ? "boldly salted" : saltPct <= 2.0 ? "restrained salt" : "well salted",
+    ...(tomatoWater > 0 ? [`≈${round(effHydration)}% effective hydration w/ tomato`] : []),
   ];
 
   const showWhy = verbosity >= 1;
@@ -392,30 +497,49 @@ export default function FocacciaBuildSheet() {
             <span>What are we making?</span>
             <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{activeStyle === "custom" ? "custom · off-preset" : "tap to preset every dial"}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
-            {STYLES.map((s) => {
-              const on = activeStyle === s.id;
-              return (
-                <button key={s.id} onClick={() => applyStyle(s.id)} style={{
-                  display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
-                  borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
-                  border: `1.5px solid ${on ? C.olive : C.line}`, background: on ? C.olive : C.card, color: on ? C.onAccent : C.ink }}>
-                  <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
-                    {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
-                  </span>
-                  <span style={{ lineHeight: 1.25 }}>
-                    <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{s.name}</span>
-                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, opacity: 0.8 }}>{s.tag}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${activeStyle === "custom" ? C.line : C.crust}`, paddingLeft: 12 }}>
+          {STYLE_CATS.map((cat) => (
+            <div key={cat} style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, margin: "0 2px 6px" }}>{cat}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+                {STYLES.filter((s) => s.cat === cat).map((s) => {
+                  const on = activeStyle === s.id;
+                  return (
+                    <button key={s.id} onClick={() => applyStyle(s.id)} style={{
+                      display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
+                      borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
+                      border: `1.5px solid ${on ? C.olive : C.line}`, background: on ? C.olive : C.card, color: on ? C.onAccent : C.ink }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
+                        {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
+                      </span>
+                      <span style={{ lineHeight: 1.25 }}>
+                        <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>{s.name}</span>
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, opacity: 0.8 }}>{s.tag}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${activeStyle === "custom" ? C.line : C.crust}`, paddingLeft: 12 }}>
             {activeStyle === "custom"
               ? "Custom — you've tuned the dials off any single tradition. Pick a style above to snap back to a preset."
               : STYLE_BY_ID[activeStyle].blurb}
           </div>
+
+          {/* Beyond the dials — honest about what this model can't fake */}
+          <details style={{ marginTop: 12, background: C.card, border: `1.5px dashed ${C.line}`, borderRadius: 11, padding: "10px 14px" }}>
+            <summary style={{ cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, letterSpacing: 0.5, color: C.inkSoft, fontWeight: 600 }}>
+              ▸ Beyond the dials — focacce that need a different method
+            </summary>
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+              {OFF_MODEL.map((o) => (
+                <div key={o.name} style={{ fontSize: 13.5, lineHeight: 1.45, color: C.inkSoft }}>
+                  <span style={{ fontWeight: 600, color: C.ink, fontFamily: "'Fraunces', serif" }}>{o.name}</span> — {o.note}
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
 
         {/* Flour master input */}
@@ -520,7 +644,71 @@ export default function FocacciaBuildSheet() {
               );
             })}
           </div>
+
+          {/* Cherry-tomato water → effective hydration */}
+          {tomatoOn && (
+            <div style={{ marginTop: 11, background: C.brineBg, border: `1.5px solid ${C.rust}`, borderRadius: 11, padding: "12px 14px", animation: "riseIn .2s ease" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>🍅 Cherry-tomato water</span>
+                <div style={{ display: "flex", gap: 4, background: C.paperDeep, borderRadius: 9, padding: 4 }}>
+                  {Object.entries(TOMATO_MODES).map(([id, label]) => {
+                    const on = tomatoMode === id;
+                    return (
+                      <button key={id} onClick={() => setTomatoMode(id)} style={{ border: "none", borderRadius: 7, padding: "6px 11px", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 600, background: on ? C.rust : "transparent", color: on ? C.onAccent : C.inkSoft, transition: "all .15s ease" }}>{label}</button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.inkSoft, marginBottom: 2 }}>
+                <span>tomato load</span>
+                <span style={{ color: C.rust, fontWeight: 600 }}>{tomatoPct}% · {round(tomatoLoad)}g</span>
+              </div>
+              <input type="range" min={0} max={50} step={1} value={tomatoPct} onChange={(e) => setTomatoPct(Number(e.target.value))} style={{ width: "100%", accentColor: C.rust, margin: "4px 0 8px" }} />
+              <div style={{ fontSize: 13, lineHeight: 1.5, color: C.inkSoft }}>
+                {tomatoMode === "roast"
+                  ? "Smashing & roasting drives off some water, but you spread the concentrated pulp straight onto the dough — so it still wets the crumb."
+                  : "Raw halves are ~95% water and weep freely into the wells as they bake."}
+                {" "}At this load that's ≈<Num color={C.rust}>{round(tomatoWater)}g</Num> of extra water, pushing effective hydration to <Num color={C.rust}>{round(effHydration)}%</Num>.
+                {tomatoWater > 0 && <> To hold your <Num color={C.ink}>{hydration}%</Num> crumb, dial the hydration down to <Num color={C.rust}>{round(suggestedHyd)}%</Num> (≈{round(f * suggestedHyd / 100)}g dough water).</>}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Mise en place — tickable prep checklist */}
+        {selectedToppings.length > 0 && (
+          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>Mise en place — topping prep</span>
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>tick as you go</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: C.inkSoft, fontStyle: "italic", marginBottom: 10 }}>Get these done before you dimple — wet or unprepped toppings steam the crumb.</div>
+            {selectedToppings.map((t) => {
+              const steps = t.id === "tomato" && tomatoMode === "roast"
+                ? ["Smash & roast first (200°C/400°F until jammy), then cool", ...t.prepSteps.slice(1)]
+                : t.prepSteps;
+              return (
+                <div key={t.id} style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 5 }}>{t.icon} {t.label}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {steps.map((step, i) => {
+                      const key = `${t.id}:${i}`;
+                      const done = !!prepDone[key];
+                      return (
+                        <button key={key} onClick={() => togglePrep(key)} style={{
+                          display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
+                          background: "transparent", border: "none", padding: "1px 0", fontFamily: "'Fraunces', serif", color: C.ink }}>
+                          <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${done ? C.olive : C.line}`, background: done ? C.olive : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.onAccent, lineHeight: 1, marginTop: 2 }}>{done ? "✓" : ""}</span>
+                          <span style={{ fontSize: 13.5, lineHeight: 1.4, color: done ? C.inkSoft : C.ink, textDecoration: done ? "line-through" : "none", opacity: done ? 0.7 : 1 }}>{step}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Display options: verbosity + dark mode */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
