@@ -474,16 +474,13 @@ export default function FocacciaBuildSheet() {
 
   return (
     <ThemeCtx.Provider value={C}>
-    <div style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
+    <div style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
       <style>{FONTS}</style>
       <div style={{ maxWidth: 720, margin: "0 auto", animation: "riseIn .5s ease" }}>
         {/* Header */}
         <div style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: 14, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 8 }}>
           <div>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600 }}>
-              Focaccia Studio · dial it in
-            </div>
-            <h1 style={{ margin: "4px 0 0", fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Build Your Focaccia</h1>
+            <h1 style={{ margin: 0, fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Focaccia</h1>
           </div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, textAlign: "right", color: C.inkSoft, lineHeight: 1.5 }}>
             <span style={{ color: C.rust, fontWeight: 600 }}>{activeStyle === "custom" ? "Custom build" : STYLE_BY_ID[activeStyle].name}</span><br />
@@ -494,8 +491,8 @@ export default function FocacciaBuildSheet() {
         {/* Style selector */}
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "2px 2px 10px" }}>
-            <span>What are we making?</span>
-            <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{activeStyle === "custom" ? "custom · off-preset" : "tap to preset every dial"}</span>
+            <span>Style</span>
+            {activeStyle === "custom" && <span style={{ color: C.inkSoft, letterSpacing: 1 }}>custom · off-preset</span>}
           </div>
           {STYLE_CATS.map((cat) => (
             <div key={cat} style={{ marginBottom: 10 }}>
@@ -564,8 +561,7 @@ export default function FocacciaBuildSheet() {
 
         {/* The dials */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "4px 2px 10px" }}>
-          <span>The dials — tune the loaf</span>
-          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>recipe recomputes live</span>
+          <span>The dials</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
           <Dial label="Crumb — hydration" value={hydration} min={65} max={90} step={1}
