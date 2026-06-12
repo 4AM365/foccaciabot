@@ -289,8 +289,9 @@ function matchStyle(cur) {
 // ---- Traditional toppings & herbs ------------------------------------------
 // `styles` = which traditions a topping is classic for (drives the badge).
 // `short` = one-line prep (always shown in the table). `prep` = full method
-// (shown in the process step at Detailed verbosity). `prepSteps` = the tickable
-// mise-en-place checklist. `water:true` flags a topping that weeps moisture into
+// (shown in the process step at Detailed verbosity). `prepSteps` = per-topping
+// prep detail; the Prep timeline gets its *ordering* and dependencies from
+// TOPPING_PLAN below. `water:true` flags a topping that weeps moisture into
 // the crumb (cherry tomatoes) so it can be folded into effective hydration.
 const TOPPINGS = [
   { id: "rosemary", icon: "🌿", label: "Rosemary", styles: ["flaky", "genovese", "romana", "barese", "sameday", "schiacciata", "pizzabianca", "fougasse"],
@@ -338,6 +339,28 @@ const TOPPINGS = [
     prep: "Dried oregano scattered with the tomatoes at dimpling — classic Barese and Sicilian. Dried stands up to oven heat; fresh oregano scorches.",
     prepSteps: ["Use dried, not fresh", "Scatter with the tomatoes at dimpling"] },
 ];
+
+// When each topping's prep happens on the bake timeline, and what it has to
+// wait on. `phase` keys into the backbone built by buildTimeline(); the special
+// key `"wait"` means "the long ferment" (the cold retard, or the warm bulk on a
+// same-day bake) — that's when you roast tomatoes, toast crumbs, infuse garlic
+// and wilt greens, so they're cool/dry and ready by dimpling time. `dur` flags
+// a step that takes real time; `dep` is the call-out that makes the order
+// non-obvious. Drives the prep time-graph and the ordered checklist.
+const TOPPING_PLAN = {
+  rosemary:    { phase: "dimple", do: "Strip needles / keep small sprigs; press in & oil" },
+  tomato:      { phase: "dimple", do: "Halve; press cut-side up in the oiled wells" }, // roast mode overridden in buildTimeline
+  olives:      { phase: "dimple", do: "Pit & pat dry; press in", dep: "pat dry or the brine makes wet spots" },
+  anchovy:     { phase: "dimple", do: "Rinse & bone; lay into the sauce / on the dough" },
+  capers:      { phase: "dimple", do: "Rinse & pat dry; scatter on" },
+  onion:       { phase: "dimple", do: "Slice thin; toss with oil + salt", dur: "10-min soak tames the bite" },
+  cheese:      { phase: "bake",   do: "Cube or tear; add for the cooler second phase", dep: "go in late so it melts through, not scorches" },
+  breadcrumbs: { phase: "wait",   do: "Toast coarse crumbs in oil till golden", dur: "~10 min", dep: "toast ahead; shower on before the bake" },
+  escarole:    { phase: "wait",   do: "Wilt or blanch, then squeeze very dry", dep: "bone-dry or it steams the crumb" },
+  garlic:      { phase: "wait",   do: "Warm crushed cloves in oil to infuse; lift out", dur: "~10 min", dep: "never raw on top — it burns bitter" },
+  oregano:     { phase: "dimple", do: "Scatter dried with the tomatoes" },
+};
+
 const VERBOSITY = ["Terse", "Standard", "Detailed"];
 
 // Cherry tomatoes are ~95% water. These are the fractions of their weight that
@@ -503,6 +526,136 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
 }
 
 // ---------------------------------------------------------------------------
+// Prep timeline — lays the topping prep out on the dough's own clock so you can
+// see, at a glance, what to start first and what has to finish (cool, dry…)
+// before it can go on. The numbered Process steps are unchanged; this only
+// re-orders the *prep* into a single dependency-aware line. The long ferment is
+// the key insight here: that's the window to roast, toast, infuse and wilt.
+// ---------------------------------------------------------------------------
+const PHASE_ORDER = ["mix", "bulk", "cold", "laminate", "pan", "proof", "dimple", "bake", "cool"];
+
+function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
+  const express = schIdx === 0;
+  const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
+  const waitPhase = express ? "bulk" : "cold"; // where make-ahead prep lives
+
+  const phases = express
+    ? [
+        { key: "mix",    label: "Mix",        clock: "~25 min",   weight: 2 },
+        { key: "bulk",   label: "Warm rise",  clock: "~1 hr",     weight: 3 },
+        { key: "pan",    label: "Pan",        clock: "20–30 min", weight: 1.4 },
+        { key: "proof",  label: "Proof",      clock: sch.proof,   weight: 2.4 },
+        { key: "dimple", label: "Dimple+top", clock: "~10 min",   weight: 1.8 },
+        { key: "bake",   label: "Bake",       clock: "~22 min",   weight: 1.8 },
+        { key: "cool",   label: "Cool",       clock: "~10 min",   weight: 1.3 },
+      ]
+    : [
+        { key: "mix",    label: "Mix",        clock: "~25 min",   weight: 2 },
+        { key: "bulk",   label: "Bulk+folds", clock: "~2 hr",     weight: 2.6 },
+        { key: "cold",   label: "Cold ferment", clock: sch.cold,  weight: 5 },
+        ...(folds > 0 ? [{ key: "laminate", label: "Laminate", clock: "~20 min", weight: 1.5 }] : []),
+        { key: "pan",    label: "Pan",        clock: "20–30 min", weight: 1.4 },
+        { key: "proof",  label: "Proof",      clock: sch.proof,   weight: 2.4 },
+        { key: "dimple", label: "Dimple+top", clock: "~10 min",   weight: 1.8 },
+        { key: "bake",   label: "Bake",       clock: "~22 min",   weight: 1.8 },
+        { key: "cool",   label: "Cool",       clock: "~10 min",   weight: 1.3 },
+      ];
+
+  // The dough's own backbone, one label per phase.
+  const spine = {
+    mix:      express ? "Fermentolyse · develop" : "Autolyse · develop",
+    bulk:     express ? "Warm rise + folds" : "Bulk + strength folds",
+    cold:     "Cold ferment",
+    laminate: "Laminate",
+    pan:      "Pan · relax",
+    proof:    "Final proof",
+    dimple:   "Dimple + brine",
+    bake:     "Bake hot",
+    cool:     "Onto a rack",
+  };
+
+  const tracks = [];
+  // Non-instant yeast must be bloomed before it can go in — a real "do first".
+  if (yeastType !== "instant") {
+    tracks.push({ id: "_yeast", icon: "🫧", label: "Yeast", plan: { phase: "mix", do: `Bloom the ${yt.label.toLowerCase()} in warm water`, dep: "must foam before it goes in — proves it's alive" } });
+  }
+  toppings.forEach((t) => {
+    let plan = TOPPING_PLAN[t.id];
+    if (t.id === "tomato" && tomato && tomato.on && tomato.mode === "roast") {
+      plan = { phase: waitPhase, do: "Smash & roast until jammy, then cool", dur: "~30 min", dep: "cool before it touches the dough" };
+    }
+    if (plan && plan.phase === "wait") plan = { ...plan, phase: waitPhase };
+    if (plan) tracks.push({ id: t.id, icon: t.icon, label: t.label, plan });
+  });
+
+  // Linearised: same prep, sorted into one do-this-then-that order (stable, so
+  // ties keep registry order). This is the explicit "linear order" view.
+  const ordered = tracks
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (PHASE_ORDER.indexOf(a.t.plan.phase) - PHASE_ORDER.indexOf(b.t.plan.phase)) || (a.i - b.i))
+    .map((x) => x.t);
+
+  return { phases, spine, tracks, ordered };
+}
+
+// A horizontal Gantt of the prep: phases run left→right across the x-axis of
+// time; the dough spine is the top band; each topping sits under the moment its
+// prep happens, with its icon on the axis. Scrolls sideways on narrow screens.
+// Purely presentational — state (ticking) lives in the ordered list below it.
+function TimeGraph({ phases, spine, tracks, C, accent }) {
+  const cols = `96px ${phases.map((p) => `minmax(74px, ${p.weight}fr)`).join(" ")}`;
+  const line = (i) => (i === 0 ? "none" : `1px solid ${C.line}`);
+
+  const chip = (t) => (
+    <div style={{ background: C.paperDeep, border: `1px solid ${C.line}`, borderLeft: `3px solid ${accent}`, borderRadius: 8, padding: "5px 7px", width: "100%" }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.25, color: C.ink }}>{t.icon} {t.plan.do}</div>
+      {t.plan.dur && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: accent, fontWeight: 600, marginTop: 2 }}>⏱ {t.plan.dur}</div>}
+      {t.plan.dep && <div style={{ fontSize: 10.5, fontStyle: "italic", color: C.inkSoft, lineHeight: 1.3, marginTop: 2 }}>↳ {t.plan.dep}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ minWidth: 96 + phases.length * 92, display: "grid", gridTemplateColumns: cols, rowGap: 6, alignItems: "stretch" }}>
+        {/* x-axis: phase labels + clocks */}
+        <div />
+        {phases.map((p, i) => (
+          <div key={p.key} style={{ borderLeft: line(i), padding: "0 6px 4px" }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{p.label}</div>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: accent, fontWeight: 600 }}>{p.clock}</div>
+          </div>
+        ))}
+
+        {/* the dough's own timeline */}
+        <div style={{ display: "flex", alignItems: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.inkSoft }}>Dough</div>
+        {phases.map((p, i) => (
+          <div key={p.key} style={{ borderLeft: line(i), padding: "0 4px", display: "flex", alignItems: "center" }}>
+            {spine[p.key] && (
+              <div style={{ background: accent, color: C.onAccent, borderRadius: 7, padding: "6px 8px", fontSize: 11.5, fontWeight: 600, lineHeight: 1.2, width: "100%" }}>{spine[p.key]}</div>
+            )}
+          </div>
+        ))}
+
+        {/* one lane per topping — icon rides the axis at its prep time */}
+        {tracks.map((t) => (
+          <React.Fragment key={t.id}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600, color: C.ink }}>
+              <span style={{ fontSize: 15 }}>{t.icon}</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</span>
+            </div>
+            {phases.map((p, i) => (
+              <div key={p.key} style={{ borderLeft: line(i), padding: "0 4px", display: "flex", alignItems: "center" }}>
+                {t.plan.phase === p.key ? chip(t) : null}
+              </div>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 export default function FocacciaBuildSheet() {
   const D0 = STYLE_BY_ID[DEFAULT_STYLE].set;
   // master scale
@@ -615,6 +768,8 @@ export default function FocacciaBuildSheet() {
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
   const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
     [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, verbosity, tomatoOn, tomatoMode, tomatoPct, f]);
+  const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato }),
+    [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode]);
 
   const dialProfile = [
     hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
@@ -860,40 +1015,48 @@ export default function FocacciaBuildSheet() {
           )}
         </div>
 
-        {/* Mise en place — tickable prep checklist */}
-        {selectedToppings.length > 0 && (
-          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
-              <span style={{ fontSize: 15, fontWeight: 600 }}>Mise en place — topping prep</span>
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>tick as you go</span>
-            </div>
-            <div style={{ fontSize: 12.5, color: C.inkSoft, fontStyle: "italic", marginBottom: 10 }}>Get these done before you dimple — wet or unprepped toppings steam the crumb.</div>
-            {selectedToppings.map((t) => {
-              const steps = t.id === "tomato" && tomatoMode === "roast"
-                ? ["Smash & roast first (200°C/400°F until jammy), then cool", ...t.prepSteps.slice(1)]
-                : t.prepSteps;
-              return (
-                <div key={t.id} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 5 }}>{t.icon} {t.label}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {steps.map((step, i) => {
-                      const key = `${t.id}:${i}`;
-                      const done = !!prepDone[key];
-                      return (
-                        <button key={key} onClick={() => togglePrep(key)} style={{
-                          display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
-                          background: "transparent", border: "none", padding: "1px 0", fontFamily: "'Fraunces', serif", color: C.ink }}>
-                          <span style={{ width: 16, height: 16, borderRadius: 5, border: `2px solid ${done ? C.olive : C.line}`, background: done ? C.olive : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.onAccent, lineHeight: 1, marginTop: 2 }}>{done ? "✓" : ""}</span>
-                          <span style={{ fontSize: 13.5, lineHeight: 1.4, color: done ? C.inkSoft : C.ink, textDecoration: done ? "line-through" : "none", opacity: done ? 0.7 : 1 }}>{step}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+        {/* Prep timeline — the topping prep, laid out on the dough's own clock */}
+        <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Prep timeline — what to do when</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>left → right = first → last</span>
           </div>
-        )}
+          <div style={{ fontSize: 12.5, color: C.inkSoft, fontStyle: "italic", marginBottom: 11 }}>
+            The top band is the dough's own clock; each topping sits under the moment its prep happens. <span style={{ fontStyle: "normal" }}>⏱</span> marks a step that takes time — the long ferment is your window to roast, toast and infuse. <span style={{ fontStyle: "normal" }}>↳</span> is what it has to finish (cool, dry…) before it can go on.
+          </div>
+
+          <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} C={C} accent={C.olive} />
+
+          {/* Same prep, linearised into one order — tick as you go */}
+          <div style={{ borderTop: `1.5px solid ${C.line}`, marginTop: 12, paddingTop: 11 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 9 }}>In order · tick as you go</div>
+            {timeline.ordered.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.inkSoft, fontStyle: "italic" }}>Nothing to prep ahead — instant yeast goes straight in, and your toppings go on at dimpling.</div>
+            ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {timeline.ordered.map((t, i) => {
+                const key = `plan:${t.id}`;
+                const done = !!prepDone[key];
+                return (
+                  <button key={key} onClick={() => togglePrep(key)} style={{
+                    display: "flex", gap: 10, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
+                    background: "transparent", border: "none", padding: "1px 0", fontFamily: "'Fraunces', serif", color: C.ink }}>
+                    <span style={{ width: 17, height: 17, borderRadius: 5, border: `2px solid ${done ? C.olive : C.line}`, background: done ? C.olive : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.onAccent, lineHeight: 1, marginTop: 2 }}>{done ? "✓" : ""}</span>
+                    <span style={{ flex: 1, lineHeight: 1.4 }}>
+                      <span style={{ fontSize: 14, color: done ? C.inkSoft : C.ink, textDecoration: done ? "line-through" : "none", opacity: done ? 0.7 : 1 }}>
+                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.crust, marginRight: 7 }}>{String(i + 1).padStart(2, "0")}</span>
+                        {t.icon} {t.plan.do}
+                        {t.plan.dur && <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: C.olive, fontWeight: 600 }}> · ⏱ {t.plan.dur}</span>}
+                      </span>
+                      {t.plan.dep && <span style={{ display: "block", fontSize: 12, fontStyle: "italic", color: C.inkSoft, marginTop: 1 }}>↳ {t.plan.dep}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            )}
+          </div>
+        </div>
         </>}
 
         {/* Display options: verbosity + dark mode */}
