@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useContext } from "react";
+import React, { useState, useMemo, useContext, useEffect } from "react";
 import goldmemberImg from "./goldmember.png";
 
 // ============================================================================
@@ -334,7 +334,7 @@ function matchStyle(cur) {
 // ---- Traditional toppings & herbs ------------------------------------------
 // `styles` = which traditions a topping is classic for (drives the badge).
 // `short` = one-line prep (always shown in the table). `prep` = full method
-// (shown in the process step at Detailed verbosity). `prepSteps` = per-topping
+// (shown in the process step's expandable "why"). `prepSteps` = per-topping
 // prep detail; the Prep timeline gets its *ordering* and dependencies from
 // TOPPING_PLAN below. `water:true` flags a topping that weeps moisture into
 // the crumb (cherry tomatoes) so it can be folded into effective hydration.
@@ -406,7 +406,6 @@ const TOPPING_PLAN = {
   oregano:     { phase: "dimple", do: "Scatter dried with the tomatoes" },
 };
 
-const VERBOSITY = ["Terse", "Standard", "Detailed"];
 
 // Cherry tomatoes are ~95% water. These are the fractions of their weight that
 // realistically weep into the crumb during the bake — raw halves dump more;
@@ -566,10 +565,10 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 }
 
 // ---------------------------------------------------------------------------
-// Process generator — steps adapt to schedule, lamination, hydration, yeast,
-// toppings and verbosity. `more` is extra detail surfaced only at Detailed.
+// Process generator — steps adapt to schedule, lamination, hydration, yeast and
+// toppings. Each step shows its spec as bullets; `why` + `more` reveal on tap.
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, verbosity, tomato }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato }) {
   const express = schIdx === 0;
   const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
@@ -634,7 +633,7 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   }
 
   if (toppings.length) {
-    const lines = toppings.map((t) => `${t.icon} ${t.label} — ${verbosity >= 2 ? t.prep : t.short}`).join("\n");
+    const lines = toppings.map((t) => `${t.icon} ${t.label} — ${t.prep}`).join("\n");
     const tomatoNote = tomato && tomato.on
       ? `\n\nNote on the tomatoes: at ${tomato.pct}% of flour (${round(tomato.load)}g), ${tomato.mode === "roast" ? "smashed & roasted" : "raw halves"} weep ≈${round(tomato.water)}g of water into the crumb — that pushes effective hydration from ${hydration}% to ≈${round(tomato.eff)}%. If you want to hold the ${hydration}% crumb, pull the dough water back to ≈${round(tomato.suggested)}% (the tomato panel up top does the math live).`
       : "";
@@ -804,11 +803,21 @@ export default function FocacciaBuildSheet() {
   const [tomatoMode, setTomatoMode] = useState("raw"); // raw | roast
   const [tomatoPct, setTomatoPct] = useState(20);       // cherry tomatoes as % of flour
   const [prepDone, setPrepDone] = useState({});         // mise-en-place checklist
-  const [verbosity, setVerbosity] = useState(1);
-  const [dark, setDark] = useState(false);
+  // Light/dark inherits from the host Quartz blog (it sets `saved-theme` on <html>
+  // and fires a `themechange` event); standalone, it falls back to light.
+  const [dark, setDark] = useState(() => {
+    try { return document.documentElement.getAttribute("saved-theme") === "dark"; } catch { return false; }
+  });
   const [geocities, setGeocities] = useState(true); // retro skin axis — default ON (GeoCities-light is the boot state)
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
+
+  // Follow the blog's light/dark toggle live when embedded there.
+  useEffect(() => {
+    const onThemeChange = (e) => { if (e && e.detail && e.detail.theme) setDark(e.detail.theme === "dark"); };
+    document.addEventListener("themechange", onThemeChange);
+    return () => document.removeEventListener("themechange", onThemeChange);
+  }, []);
   // kitchen environment (altitude + humidity for a ZIP/day, plus room temp)
   const [zip, setZip] = useState("");
   const [envDate, setEnvDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -962,8 +971,8 @@ export default function FocacciaBuildSheet() {
   ];
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
-    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, verbosity, tomatoOn, tomatoMode, tomatoPct, f]);
+  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f]);
   const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato }),
     [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode]);
 
@@ -983,7 +992,6 @@ export default function FocacciaBuildSheet() {
   const STEPS = specialRecipe ? specialRecipe.steps : dialSteps;
   const profile = specialRecipe ? specialRecipe.profile : dialProfile;
 
-  const showWhy = verbosity >= 1;
 
   const mono = "'IBM Plex Mono', monospace";
   const envFieldLabel = { display: "flex", flexDirection: "column", gap: 5, fontFamily: mono, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 };
@@ -1001,6 +1009,11 @@ export default function FocacciaBuildSheet() {
       <style>{FONTS}</style>
       {geocities && <style>{GEO_CSS}</style>}
       <div style={{ width: "100%", maxWidth: 880, margin: "0 auto", animation: "riseIn .5s ease" }}>
+        {/* Theme + skin toggles — top of the widget; light/dark inherits from the blog */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <div style={{ width: 190 }}><Toggle on={geocities} onClick={() => setGeocities((g) => !g)} label={geocities ? "GeoCities ✨" : "Modern"} /></div>
+          <div style={{ width: 148 }}><Toggle on={dark} onClick={() => setDark((d) => !d)} label={dark ? "Dark" : "Light"} /></div>
+        </div>
         {/* GeoCities banner — only on the retro skin */}
         {geocities && (
           <div style={{ marginBottom: 16, textAlign: "center" }}>
@@ -1427,23 +1440,6 @@ export default function FocacciaBuildSheet() {
         </div>
         </>}
 
-        {/* Display options: verbosity + dark mode */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 12 }}>
-          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px 11px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 15, fontWeight: 600 }}>Recipe detail</span>
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: C.olive, fontWeight: 600 }}>{VERBOSITY[verbosity]}</span>
-            </div>
-            <input type="range" min={0} max={2} step={1} value={verbosity} onChange={(e) => setVerbosity(Number(e.target.value))} style={{ width: "100%", accentColor: C.olive, margin: "9px 0 2px" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.inkSoft }}>
-              {VERBOSITY.map((lbl, i) => <span key={lbl} style={{ color: i === verbosity ? C.olive : C.inkSoft, fontWeight: i === verbosity ? 600 : 400, flex: 1, textAlign: "center" }}>{lbl.toLowerCase()}</span>)}
-            </div>
-          </div>
-          <div style={{ display: "grid", gap: 10 }}>
-            <Toggle on={geocities} onClick={() => setGeocities((g) => !g)} label={geocities ? "GeoCities ✨" : "Modern"} sub={geocities ? "like it's 1998" : "clean & calm"} />
-            <Toggle on={dark} onClick={() => setDark((d) => !d)} label={dark ? "Dark mode" : "Light mode"} sub={dark ? (geocities ? "neon starfield" : "warm charcoal") : (geocities ? "clashing pastels" : "warm paper")} />
-          </div>
-        </div>
 
         {/* Live profile chips */}
         <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 22 }}>
@@ -1506,25 +1502,29 @@ export default function FocacciaBuildSheet() {
 
         {/* Process */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 12 }}>
-          <span>Process{showWhy ? " — tap for the why" : ""}</span>
+          <span>Process — tap any step for the why</span>
           <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{specialRecipe ? specialRecipe.clock : `${sch.clock}${express ? " + bake" : ""}`}</span>
         </div>
 
         {STEPS.map((s) => {
           const open = openStep === s.n;
           return (
-            <div key={s.n} style={{ border: `1.5px solid ${open && showWhy ? C.olive : C.line}`, borderRadius: 12, marginBottom: 9, overflow: "hidden", background: open && showWhy ? C.card : "transparent", transition: "border-color .18s ease" }}>
+            <div key={s.n} style={{ border: `1.5px solid ${open ? C.olive : C.line}`, borderRadius: 12, marginBottom: 9, overflow: "hidden", background: open ? C.card : "transparent", transition: "border-color .18s ease" }}>
               <button onClick={() => setOpenStep(open ? "" : s.n)} style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "14px 16px", fontFamily: "'Fraunces', serif", color: C.ink }}>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, color: open && showWhy ? C.olive : C.crust, paddingTop: 3 }}>{s.n}</span>
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, color: open ? C.olive : C.crust, paddingTop: 3 }}>{s.n}</span>
                 <span style={{ flex: 1 }}>
                   <span style={{ fontSize: 19, fontWeight: 600, display: "block" }}>{s.title}</span>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.inkSoft }}>{s.spec}</span>
+                  <span style={{ display: "block", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.inkSoft, marginTop: 5 }}>
+                    {s.spec.split(" · ").map((seg, i) => (
+                      <span key={i} style={{ display: "block", paddingLeft: 13, textIndent: -11, lineHeight: 1.5 }}>• {seg}</span>
+                    ))}
+                  </span>
                 </span>
-                {showWhy && <span style={{ fontSize: 20, color: C.olive, transform: open ? "rotate(45deg)" : "none", transition: "transform .2s ease", lineHeight: 1, paddingTop: 2 }}>+</span>}
+                <span style={{ fontSize: 20, color: C.olive, transform: open ? "rotate(45deg)" : "none", transition: "transform .2s ease", lineHeight: 1, paddingTop: 2 }}>+</span>
               </button>
-              {open && showWhy && (
+              {open && (
                 <div style={{ padding: "0 16px 16px 44px", fontSize: 15.5, lineHeight: 1.55, color: C.inkSoft, whiteSpace: "pre-line", animation: "riseIn .25s ease" }}>
-                  {s.why}{verbosity >= 2 && s.more ? `\n\n${s.more}` : ""}
+                  {s.why}{s.more ? `\n\n${s.more}` : ""}
                 </div>
               )}
             </div>
