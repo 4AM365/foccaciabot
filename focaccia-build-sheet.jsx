@@ -17,6 +17,32 @@ const FONTS = `
 @keyframes riseIn { from { opacity:0; transform: translateY(10px);} to {opacity:1; transform:none;} }
 `;
 
+// GeoCities skin stylesheet — injected only when the retro skin is on. Forced
+// with !important so it overrides the hardcoded inline fonts/borders without
+// rewriting every styled element. `.geo-dark`/`.geo-light` pick the tiled
+// background to match the mode toggle.
+const GEO_CSS = `
+@keyframes geoBlink { 50% { opacity: 0; } }
+@keyframes geoRainbow { 0%{color:#ff0040} 20%{color:#ff8c00} 40%{color:#ffe000} 60%{color:#00c853} 80%{color:#2962ff} 100%{color:#aa00ff} }
+.geocities, .geocities * { font-family: "Comic Sans MS","Comic Sans","Chalkboard SE",cursive !important; }
+.geocities .geo-counter, .geocities .geo-counter * { font-family: "Courier New", monospace !important; }
+.geocities button { border-style: outset !important; }
+.geocities { background-repeat: repeat !important; }
+.geocities.geo-dark { background-image:
+  radial-gradient(1.5px 1.5px at 20px 24px,#ffffff,transparent),
+  radial-gradient(1px 1px at 64px 52px,#aaeeff,transparent),
+  radial-gradient(1.5px 1.5px at 120px 88px,#ffffff,transparent),
+  radial-gradient(1px 1px at 150px 30px,#ffd0d0,transparent) !important;
+  background-size: 180px 130px !important; }
+.geocities.geo-light { background-image:
+  radial-gradient(3px 3px at 22px 24px,rgba(255,0,255,0.20),transparent),
+  radial-gradient(3px 3px at 92px 70px,rgba(0,0,238,0.16),transparent),
+  radial-gradient(3px 3px at 150px 34px,rgba(255,140,0,0.18),transparent) !important;
+  background-size: 175px 120px !important; }
+.geo-blink { animation: geoBlink 1.1s steps(1) infinite; }
+.geo-rainbow { animation: geoRainbow 5s linear infinite; font-weight: 900; }
+`;
+
 // ---- Theming ---------------------------------------------------------------
 // Same keys in both palettes. `onAccent` is light in BOTH themes — it's the
 // text/icon colour placed on olive/oliveDeep/rust accent surfaces.
@@ -34,6 +60,24 @@ const THEMES = {
     line: "#3a322a", card: "#221c16", onAccent: "#f7efe2",
     glow: "radial-gradient(circle at 20% 10%, rgba(226,125,71,0.10), transparent 42%), radial-gradient(circle at 85% 0%, rgba(148,165,87,0.10), transparent 45%)",
     brineBg: "rgba(226,125,71,0.10)",
+  },
+  // GeoCities skin — same keys, but 1998 personal-homepage energy. The tiled
+  // background, Comic Sans, bevels and blink live in GEO_CSS (injected when the
+  // skin is on); these palettes carry the clashing colours. Two variants so the
+  // light/dark mode toggle still works *within* the retro skin (four states).
+  geoLight: {
+    paper: "#cfcfee", paperDeep: "#bcbce4", ink: "#000000", inkSoft: "#000080",
+    olive: "#ff00ff", oliveDeep: "#c800c8", rust: "#0000ee", crust: "#ff6a00",
+    line: "#808080", card: "#ffffcc", onAccent: "#ffffff",
+    glow: "none",
+    brineBg: "rgba(255,0,255,0.10)",
+  },
+  geoDark: {
+    paper: "#000018", paperDeep: "#000010", ink: "#00ff66", inkSoft: "#33ccff",
+    olive: "#ff00ff", oliveDeep: "#aa00aa", rust: "#ffe000", crust: "#ff8c00",
+    line: "#5454aa", card: "#0a0a30", onAccent: "#ffffff",
+    glow: "none",
+    brineBg: "rgba(255,224,0,0.10)",
   },
 };
 const ThemeCtx = React.createContext(THEMES.light);
@@ -678,10 +722,13 @@ export default function FocacciaBuildSheet() {
   const [prepDone, setPrepDone] = useState({});         // mise-en-place checklist
   const [verbosity, setVerbosity] = useState(1);
   const [dark, setDark] = useState(false);
+  const [geocities, setGeocities] = useState(true); // retro skin axis — default ON (GeoCities-light is the boot state)
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
 
-  const C = dark ? THEMES.dark : THEMES.light;
+  // Two independent axes → four palettes: {modern,geo} × {light,dark}.
+  const C = geocities ? (dark ? THEMES.geoDark : THEMES.geoLight)
+                      : (dark ? THEMES.dark : THEMES.light);
 
   function applyStyle(id) {
     const s = STYLE_BY_ID[id];
@@ -792,9 +839,25 @@ export default function FocacciaBuildSheet() {
 
   return (
     <ThemeCtx.Provider value={C}>
-    <div style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
+    <div className={geocities ? `geocities ${dark ? "geo-dark" : "geo-light"}` : undefined} style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
       <style>{FONTS}</style>
+      {geocities && <style>{GEO_CSS}</style>}
       <div style={{ maxWidth: 720, margin: "0 auto", animation: "riseIn .5s ease" }}>
+        {/* GeoCities banner — only on the retro skin */}
+        {geocities && (
+          <div style={{ marginBottom: 16, textAlign: "center" }}>
+            <marquee scrollamount="6" style={{ background: "#000080", color: "#00ff66", border: "3px ridge #c0c0c0", padding: "5px 0", fontWeight: 700, fontSize: 14 }}>
+              ✨🔥 Welcome to Will&apos;s Fantastic Focaccia HomePage!! 🔥✨ &nbsp; Best viewed in Netscape Navigator 4.0 at 800×600 &nbsp; ✨ Don&apos;t forget to sign my guestbook!! ✨
+            </marquee>
+            <div style={{ marginTop: 9, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", alignItems: "center", fontSize: 13 }}>
+              <span className="geo-blink" style={{ color: C.rust, fontWeight: 900, letterSpacing: 1 }}>🚧 UNDER CONSTRUCTION 🚧</span>
+              <span className="geo-counter" style={{ background: "#000", color: "#00ff00", border: "2px inset #00ff00", padding: "2px 7px", letterSpacing: 4, fontWeight: 700 }}>
+                ⛏ Visitors: 0013372
+              </span>
+              <span className="geo-rainbow" style={{ fontWeight: 900 }}>~ * Hot! * ~</span>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <div style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: 14, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 8 }}>
           <div>
@@ -1083,7 +1146,10 @@ export default function FocacciaBuildSheet() {
               {VERBOSITY.map((lbl, i) => <span key={lbl} style={{ color: i === verbosity ? C.olive : C.inkSoft, fontWeight: i === verbosity ? 600 : 400, flex: 1, textAlign: "center" }}>{lbl.toLowerCase()}</span>)}
             </div>
           </div>
-          <Toggle on={dark} onClick={() => setDark((d) => !d)} label={dark ? "Dark mode" : "Light mode"} sub={dark ? "warm charcoal" : "warm paper"} />
+          <div style={{ display: "grid", gap: 10 }}>
+            <Toggle on={geocities} onClick={() => setGeocities((g) => !g)} label={geocities ? "GeoCities ✨" : "Modern"} sub={geocities ? "like it's 1998" : "clean & calm"} />
+            <Toggle on={dark} onClick={() => setDark((d) => !d)} label={dark ? "Dark mode" : "Light mode"} sub={dark ? (geocities ? "neon starfield" : "warm charcoal") : (geocities ? "clashing pastels" : "warm paper")} />
+          </div>
         </div>
 
         {/* Live profile chips */}
