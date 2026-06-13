@@ -79,6 +79,22 @@ const THEMES = {
     glow: "none",
     brineBg: "rgba(255,224,0,0.10)",
   },
+  // JDM — matches the blog's default vibe (white / purple) so the widget stays
+  // coherent when the page is in the `jdm` vibe. Mapped from quartz.config.ts.
+  jdmLight: {
+    paper: "#ffffff", paperDeep: "#ece9f5", ink: "#1a1730", inkSoft: "#6b6688",
+    olive: "#6d28d9", oliveDeep: "#5b21b6", rust: "#7c3aed", crust: "#a78bfa",
+    line: "#d8d3ea", card: "#faf9fd", onAccent: "#ffffff",
+    glow: "radial-gradient(circle at 20% 10%, rgba(109,40,217,0.05), transparent 40%), radial-gradient(circle at 85% 0%, rgba(167,139,250,0.06), transparent 45%)",
+    brineBg: "rgba(109,40,217,0.07)",
+  },
+  jdmDark: {
+    paper: "#14101e", paperDeep: "#26213a", ink: "#f5f3fc", inkSoft: "#9b95b5",
+    olive: "#a78bfa", oliveDeep: "#7c3aed", rust: "#c084fc", crust: "#c084fc",
+    line: "#3a3358", card: "#1e1830", onAccent: "#14101e",
+    glow: "radial-gradient(circle at 20% 10%, rgba(167,139,250,0.10), transparent 42%), radial-gradient(circle at 85% 0%, rgba(192,132,252,0.10), transparent 45%)",
+    brineBg: "rgba(167,139,250,0.10)",
+  },
 };
 const ThemeCtx = React.createContext(THEMES.light);
 const useC = () => useContext(ThemeCtx);
@@ -808,15 +824,20 @@ export default function FocacciaBuildSheet() {
   const [dark, setDark] = useState(() => {
     try { return document.documentElement.getAttribute("saved-theme") === "dark"; } catch { return false; }
   });
-  const [geocities, setGeocities] = useState(true); // retro skin axis — default ON (GeoCities-light is the boot state)
+  // Vibe (skin) inherits from the host blog's `saved-vibe` (jdm | geocities | modern); standalone → jdm.
+  const [vibe, setVibe] = useState(() => {
+    try { return document.documentElement.getAttribute("saved-vibe") || "jdm"; } catch { return "jdm"; }
+  });
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
 
-  // Follow the blog's light/dark toggle live when embedded there.
+  // Follow the blog's light/dark + vibe switchers live when embedded there.
   useEffect(() => {
-    const onThemeChange = (e) => { if (e && e.detail && e.detail.theme) setDark(e.detail.theme === "dark"); };
-    document.addEventListener("themechange", onThemeChange);
-    return () => document.removeEventListener("themechange", onThemeChange);
+    const onTheme = (e) => { if (e && e.detail && e.detail.theme) setDark(e.detail.theme === "dark"); };
+    const onVibe = (e) => { if (e && e.detail && e.detail.vibe) setVibe(e.detail.vibe); };
+    document.addEventListener("themechange", onTheme);
+    document.addEventListener("vibechange", onVibe);
+    return () => { document.removeEventListener("themechange", onTheme); document.removeEventListener("vibechange", onVibe); };
   }, []);
   // kitchen environment (altitude + humidity for a ZIP/day, plus room temp)
   const [zip, setZip] = useState("");
@@ -829,9 +850,12 @@ export default function FocacciaBuildSheet() {
   const [envError, setEnvError] = useState("");
   const [envApplied, setEnvApplied] = useState(true); // fold the recalibration into the recipe
 
-  // Two independent axes → four palettes: {modern,geo} × {light,dark}.
-  const C = geocities ? (dark ? THEMES.geoDark : THEMES.geoLight)
-                      : (dark ? THEMES.dark : THEMES.light);
+  // Inherit the page's vibe + brightness → palette. `geocities` also drives the
+  // retro banner + GEO_CSS below.
+  const geocities = vibe === "geocities";
+  const C = vibe === "geocities" ? (dark ? THEMES.geoDark : THEMES.geoLight)
+          : vibe === "modern"    ? (dark ? THEMES.dark : THEMES.light)
+          : (dark ? THEMES.jdmDark : THEMES.jdmLight);
 
   function applyStyle(id) {
     const s = STYLE_BY_ID[id];
@@ -1009,12 +1033,7 @@ export default function FocacciaBuildSheet() {
       <style>{FONTS}</style>
       {geocities && <style>{GEO_CSS}</style>}
       <div style={{ width: "100%", maxWidth: 880, margin: "0 auto", animation: "riseIn .5s ease" }}>
-        {/* Theme + skin toggles — top of the widget; light/dark inherits from the blog */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          <div style={{ width: 190 }}><Toggle on={geocities} onClick={() => setGeocities((g) => !g)} label={geocities ? "GeoCities ✨" : "Modern"} /></div>
-          <div style={{ width: 148 }}><Toggle on={dark} onClick={() => setDark((d) => !d)} label={dark ? "Dark" : "Light"} /></div>
-        </div>
-        {/* GeoCities banner — only on the retro skin */}
+        {/* GeoCities banner — only when the page is in the geocities vibe */}
         {geocities && (
           <div style={{ marginBottom: 16, textAlign: "center" }}>
             <marquee scrollamount="6" style={{ background: "#000080", color: "#00ff66", border: "3px ridge #c0c0c0", padding: "5px 0", fontWeight: 700, fontSize: 14 }}>
