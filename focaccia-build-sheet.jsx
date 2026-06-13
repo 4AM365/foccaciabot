@@ -117,7 +117,7 @@ const STYLES = [
 ];
 const STYLE_CATS = ["The house", "Classic Italian", "Regional & obscure"];
 const STYLE_BY_ID = Object.fromEntries(STYLES.map((s) => [s.id, s]));
-const DEFAULT_STYLE = "flaky";
+const DEFAULT_STYLE = "genovese";
 const STYLE_KEYS = ["hydration", "schIdx", "folds", "panOilPct", "doughOilPct", "saltPct", "semolinaPct", "twoPans"];
 
 // ---- Beyond the dials: fixed recipes -------------------------------------
@@ -680,7 +680,6 @@ export default function FocacciaBuildSheet() {
   const [dark, setDark] = useState(false);
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
-  const [flakyHeld, setFlakyHeld] = useState(false); // Goldmember easter egg: flaky button held down
 
   const C = dark ? THEMES.dark : THEMES.light;
 
@@ -819,23 +818,21 @@ export default function FocacciaBuildSheet() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
                 {STYLES.filter((s) => s.cat === cat).map((s) => {
                   const on = !special && activeStyle === s.id;
-                  // Easter egg: press-and-hold the house "flaky" tile to flash
-                  // Goldmember across its background — only this button, only while held.
-                  const held = s.id === "flaky" && flakyHeld;
-                  const holdProps = s.id === "flaky" ? {
-                    onMouseDown: () => setFlakyHeld(true),
-                    onMouseUp: () => setFlakyHeld(false),
-                    onMouseLeave: () => setFlakyHeld(false),
-                    onTouchStart: () => setFlakyHeld(true),
-                    onTouchEnd: () => setFlakyHeld(false),
-                  } : null;
+                  // Easter egg: when the house "flaky" tile is the *selected* style,
+                  // Goldmember fills its background (a dark wash keeps the label
+                  // legible). Picking any other style clears it. Persistent, unlike
+                  // the old press-and-hold — a click is too brief to ever see.
+                  const goldOn = s.id === "flaky" && on;
                   return (
-                    <button key={s.id} onClick={() => applyStyle(s.id)} {...holdProps} style={{
+                    <button key={s.id} onClick={() => applyStyle(s.id)} style={{
                       display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
                       borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
                       border: `1.5px solid ${on ? C.olive : C.line}`,
-                      background: held ? `url(${goldmemberImg}) center / cover no-repeat` : on ? C.olive : C.card,
-                      color: on ? C.onAccent : C.ink }}>
+                      background: goldOn
+                        ? `linear-gradient(rgba(0,0,0,0.32), rgba(0,0,0,0.42)), ${C.olive} url(${goldmemberImg}) center / cover no-repeat`
+                        : on ? C.olive : C.card,
+                      color: on ? C.onAccent : C.ink,
+                      textShadow: goldOn ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
                       <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
                         {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
                       </span>
