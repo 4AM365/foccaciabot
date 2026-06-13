@@ -419,6 +419,87 @@ function round(n, dp = 0) {
   const f = Math.pow(10, dp);
   return Math.round(n * f) / f;
 }
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+// ---------------------------------------------------------------------------
+// Kitchen environment — altitude, humidity & room temperature recalibration
+// ---------------------------------------------------------------------------
+// Three things about *where and when* you bake change a yeasted dough, and each
+// maps to one lever by a distinct, well-understood mechanism:
+//   • Ambient humidity → hydration. Flour equilibrates with the air's moisture
+//     and the dough surface evaporates faster in dry air, so a dry day wants a
+//     little more water and a humid day a little less.
+//   • Altitude → yeast (+ a small hydration bump). Lower air pressure lets the
+//     same fermentation gas expand more, so dough proofs faster and over-proofs
+//     easily — trim the yeast. The thinner, drier air also evaporates faster,
+//     so add a touch of water and bake hotter/shorter (standard high-altitude
+//     baking guidance, which kicks in around 3000 ft).
+//   • Room temperature → mixing-water temperature and real ferment speed. The
+//     baker's desired-dough-temperature (DDT) method sets water temp from the
+//     room; and yeast activity roughly doubles per ~18°F (a Q10 of ≈2), so a
+//     warm kitchen runs faster than the schedule's nominal clock.
+const ENV_BASE_RH = 60;             // % RH the base formula assumes
+const ENV_ALT_THRESHOLD_FT = 3000;  // high-altitude adjustments begin here
+const ENV_DDT_F = 78;               // target dough temperature after mixing
+const ENV_FRICTION_F = 5;           // hand-mix friction factor for DDT
+const ENV_FERMENT_REF_F = 75;       // room temp the schedule clocks assume
+
+function computeEnvAdjust({ elevFt, humidityPct, roomTempF }) {
+  const ftAbove = Math.max(0, elevFt - ENV_ALT_THRESHOLD_FT);
+  // Humidity → hydration: ±0.05% water per 1% RH away from baseline, gently capped.
+  const hydrationFromRH = clamp((ENV_BASE_RH - humidityPct) * 0.05, -2.5, 2.5);
+  // Altitude → hydration: +0.5% water per 1000 ft above the threshold, capped.
+  const hydrationFromAlt = clamp((ftAbove / 1000) * 0.5, 0, 4);
+  const hydrationDelta = round(hydrationFromRH + hydrationFromAlt, 1);
+  // Altitude → yeast: trim ~0.5% of the dose per 100 ft above the threshold.
+  const yeastFactor = clamp(1 - (ftAbove / 100) * 0.005, 0.7, 1);
+  // Altitude → hotter, shorter bake.
+  const bakeTempBumpF = elevFt > 6000 ? 25 : elevFt > ENV_ALT_THRESHOLD_FT ? 15 : 0;
+  // Room temp → mixing-water temp (DDT, three factors: flour≈room, room, friction).
+  const waterTempF = clamp(Math.round(3 * ENV_DDT_F - (2 * roomTempF + ENV_FRICTION_F)), 50, 120);
+  // Room temp → ferment-speed multiplier vs. the schedule's reference temp (Q10≈2).
+  const fermentFactor = Math.pow(2, (ENV_FERMENT_REF_F - roomTempF) / 18);
+  return { elevFt, humidityPct, roomTempF, ftAbove, hydrationFromRH, hydrationFromAlt,
+    hydrationDelta, yeastFactor, bakeTempBumpF, waterTempF, fermentFactor };
+}
+
+// ZIP → lat/lon (Zippopotam.us) → elevation + that day's mean humidity
+// (Open-Meteo). All three are free, key-less, CORS-enabled browser APIs.
+async function fetchKitchenEnv(zip, dateISO) {
+  const z = String(zip).trim();
+  if (!/^\d{5}$/.test(z)) throw new Error("Enter a 5-digit US ZIP code.");
+  const geoR = await fetch(`https://api.zippopotam.us/us/${z}`);
+  if (!geoR.ok) throw new Error(`No US location found for ZIP ${z}.`);
+  const geo = await geoR.json();
+  const place = geo.places && geo.places[0];
+  if (!place) throw new Error(`No US location found for ZIP ${z}.`);
+  const lat = Number(place.latitude), lon = Number(place.longitude);
+  const placeName = `${place["place name"]}, ${place["state abbreviation"] || place.state}`;
+  const day = 864e5;
+  const today = new Date().toISOString().slice(0, 10);
+  const earliest = new Date(Date.now() - 90 * day).toISOString().slice(0, 10);
+  const latest = new Date(Date.now() + 16 * day).toISOString().slice(0, 10);
+  // Open-Meteo's forecast model serves ~90 days back to 16 days ahead; older
+  // dates come from the historical archive instead.
+  const wxBase = (dateISO >= earliest && dateISO <= latest)
+    ? "https://api.open-meteo.com/v1/forecast"
+    : "https://archive-api.open-meteo.com/v1/archive";
+  const [elevR, wxR] = await Promise.all([
+    fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`),
+    fetch(`${wxBase}?latitude=${lat}&longitude=${lon}&hourly=relative_humidity_2m&start_date=${dateISO}&end_date=${dateISO}&timezone=auto`),
+  ]);
+  if (!elevR.ok) throw new Error("Couldn't fetch elevation for that location.");
+  if (!wxR.ok) throw new Error("Couldn't fetch the weather for that date.");
+  const elevJ = await elevR.json();
+  const wxJ = await wxR.json();
+  const elevM = Array.isArray(elevJ.elevation) ? elevJ.elevation[0] : elevJ.elevation;
+  const rh = ((wxJ.hourly && wxJ.hourly.relative_humidity_2m) || []).filter((x) => x != null);
+  if (elevM == null) throw new Error("Couldn't read elevation for that location.");
+  if (!rh.length) throw new Error("No humidity data for that date — try one within ~2 weeks.");
+  const humidityPct = Math.round(rh.reduce((a, b) => a + b, 0) / rh.length);
+  return { place: placeName, elevM: Math.round(elevM), elevFt: Math.round(elevM * 3.28084),
+    humidityPct, date: dateISO };
+}
 
 // ---------------------------------------------------------------------------
 // Components
@@ -728,6 +809,16 @@ export default function FocacciaBuildSheet() {
   const [geocities, setGeocities] = useState(true); // retro skin axis — default ON (GeoCities-light is the boot state)
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
+  // kitchen environment (altitude + humidity for a ZIP/day, plus room temp)
+  const [zip, setZip] = useState("");
+  const [envDate, setEnvDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [roomTempInput, setRoomTempInput] = useState("72"); // value as typed, in `tempUnit`
+  const [tempUnit, setTempUnit] = useState("F");            // 'F' | 'C'
+  const [humidityManual, setHumidityManual] = useState(""); // blank = use the fetched value
+  const [envData, setEnvData] = useState(null);     // { place, elevFt, elevM, humidityPct, date }
+  const [envLoading, setEnvLoading] = useState(false);
+  const [envError, setEnvError] = useState("");
+  const [envApplied, setEnvApplied] = useState(true); // fold the recalibration into the recipe
 
   // Two independent axes → four palettes: {modern,geo} × {light,dark}.
   const C = geocities ? (dark ? THEMES.geoDark : THEMES.geoLight)
@@ -762,13 +853,61 @@ export default function FocacciaBuildSheet() {
   const tomato = { on: tomatoOn, mode: tomatoMode, pct: tomatoPct, load: tomatoLoad,
     water: tomatoWater, eff: effHydration, suggested: suggestedHyd };
 
+  // Kitchen-environment recalibration. Room temperature is entered in °F or °C
+  // (converted to °F for the science). Humidity comes from the ZIP/day fetch but
+  // a manual entry overrides it — useful when a humidifier or HVAC makes the
+  // indoor air differ from outdoors. The altitude + humidity deltas only fold
+  // into the live recipe once we have a humidity figure and "apply" is on (and
+  // never over a fixed recipe, which carries its own formula). Altitude needs a
+  // fetched elevation; without one it's treated as sea level.
+  const rtRaw = Number(roomTempInput);
+  const rtF = tempUnit === "C" ? rtRaw * 9 / 5 + 32 : rtRaw;
+  const rt = clamp(Number.isFinite(rtF) ? rtF : ENV_FERMENT_REF_F, 40, 110);
+  const rtAltUnit = tempUnit === "F" ? round((rt - 32) * 5 / 9, 1) : round(rt, 1); // the other-unit readout
+  const humidityUsed = humidityManual.trim() !== "" ? clamp(Number(humidityManual) || 0, 0, 100)
+    : (envData ? envData.humidityPct : null);
+  const humidityIsManual = humidityManual.trim() !== "";
+  const elevFtUsed = envData ? envData.elevFt : 0;
+  const condReady = humidityUsed != null;
+  const envAdj = useMemo(
+    () => (condReady ? computeEnvAdjust({ elevFt: elevFtUsed, humidityPct: humidityUsed, roomTempF: rt }) : null),
+    [condReady, elevFtUsed, humidityUsed, rt]
+  );
+  const envOn = !!(condReady && envApplied && !special);
+  const hydrationAdj = round(clamp(hydration + (envOn ? envAdj.hydrationDelta : 0), 55, 100), 1);
+  const yeastEnvFactor = envOn ? envAdj.yeastFactor : 1;
+
+  async function runEnvFetch() {
+    setEnvLoading(true);
+    setEnvError("");
+    try {
+      setEnvData(await fetchKitchenEnv(zip, envDate));
+    } catch (e) {
+      setEnvData(null);
+      setEnvError(e.message || "Couldn't fetch conditions.");
+    } finally {
+      setEnvLoading(false);
+    }
+  }
+  // Switch the room-temp unit, converting the entered value so it stays the
+  // same physical temperature.
+  function switchTempUnit(u) {
+    if (u === tempUnit) return;
+    const n = Number(roomTempInput);
+    if (Number.isFinite(n) && roomTempInput.trim() !== "") {
+      const conv = u === "C" ? (n - 32) * 5 / 9 : n * 9 / 5 + 32;
+      setRoomTempInput(String(round(conv, 1)));
+    }
+    setTempUnit(u);
+  }
+
   const v = useMemo(() => {
     const sem = f * (semolinaPct / 100);
     const breadFlour = f - sem;
-    const water = f * (hydration / 100);
+    const water = f * (hydrationAdj / 100);
     const salt = f * (saltPct / 100);
     const yFactor = (YEAST_TYPES[yeastType] || YEAST_TYPES.instant).factor;
-    const yeastPctEff = sch.yeast * yFactor;
+    const yeastPctEff = sch.yeast * yFactor * yeastEnvFactor;
     const yeast = f * (yeastPctEff / 100);
     const sugar = f * (sch.sugar / 100);
     const panOil = f * (panOilPct / 100);
@@ -781,7 +920,7 @@ export default function FocacciaBuildSheet() {
     const doughWeight = f + water + salt + yeast + sugar + doughOil;
     const totalOil = panOil + doughOil + foldOil + brineOil;
     return { sem, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
-  }, [f, hydration, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType]);
+  }, [f, hydrationAdj, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
 
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
@@ -790,10 +929,16 @@ export default function FocacciaBuildSheet() {
     { title: "Dough", items: [
       { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) },
       ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
-      { k: express ? "Water — warm, 95–100°F" : "Water", g: round(v.water), pct: hydration },
+      { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
+        g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
+        note: envOn && envAdj.hydrationDelta !== 0
+          ? `${hydration}% base ${envAdj.hydrationDelta > 0 ? "+" : ""}${envAdj.hydrationDelta}% for your kitchen air`
+          : undefined },
       { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) },
-      { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express,
-        note: yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note },
+      { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express || (envOn && yeastEnvFactor < 1),
+        note: envOn && yeastEnvFactor < 1
+          ? `−${round((1 - yeastEnvFactor) * 100)}% for altitude — thin air over-proofs`
+          : yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note },
       ...(v.sugar > 0 ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" }] : []),
       { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1),
         note: doughOilPct === 0 ? "none — Ligurian-style, oil stays outside the dough" : "softens crumb · tenderises gluten · added after mixing" },
@@ -840,12 +985,22 @@ export default function FocacciaBuildSheet() {
 
   const showWhy = verbosity >= 1;
 
+  const mono = "'IBM Plex Mono', monospace";
+  const envFieldLabel = { display: "flex", flexDirection: "column", gap: 5, fontFamily: mono, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 };
+  const envFieldInput = { fontFamily: mono, fontSize: 15, padding: "9px 11px", borderRadius: 9, border: `1.5px solid ${C.line}`, background: C.paperDeep, color: C.ink, outline: "none" };
+  const envStat = (label, value) => (
+    <div key={label} style={{ flex: "1 1 120px", background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 10, padding: "9px 12px" }}>
+      <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 600, color: C.olive }}>{value}</div>
+    </div>
+  );
+
   return (
     <ThemeCtx.Provider value={C}>
-    <div className={geocities ? `geocities ${dark ? "geo-dark" : "geo-light"}` : undefined} style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
+    <div className={geocities ? `geocities ${dark ? "geo-dark" : "geo-light"}` : undefined} style={{ backgroundColor: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
       <style>{FONTS}</style>
       {geocities && <style>{GEO_CSS}</style>}
-      <div style={{ maxWidth: 720, margin: "0 auto", animation: "riseIn .5s ease" }}>
+      <div style={{ width: "100%", maxWidth: 880, margin: "0 auto", animation: "riseIn .5s ease" }}>
         {/* GeoCities banner — only on the retro skin */}
         {geocities && (
           <div style={{ marginBottom: 16, textAlign: "center" }}>
@@ -967,6 +1122,141 @@ export default function FocacciaBuildSheet() {
           </div>
         </div>
 
+        {/* Kitchen environment — altitude + humidity (by ZIP/day) + room temp */}
+        <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 14, padding: "16px 18px", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>Kitchen environment</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: C.inkSoft }}>altitude · humidity · room temp</span>
+          </div>
+          <div style={{ fontSize: 13, color: C.inkSoft, fontStyle: "italic", marginBottom: 13 }}>
+            Pull your elevation and the day's humidity from a US ZIP code (or type your own indoor humidity), set the room temperature in °F or °C, and the formula recalibrates — dough water, yeast, mixing-water temperature and the bake.
+          </div>
+
+          {/* Location → fetch */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <label style={{ ...envFieldLabel, flex: "2 1 130px" }}>
+              ZIP code
+              <input value={zip} inputMode="numeric" placeholder="e.g. 80401"
+                onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                onKeyDown={(e) => { if (e.key === "Enter") runEnvFetch(); }}
+                style={envFieldInput} />
+            </label>
+            <label style={{ ...envFieldLabel, flex: "2 1 150px" }}>
+              Date
+              <input type="date" value={envDate} onChange={(e) => setEnvDate(e.target.value)} style={envFieldInput} />
+            </label>
+            <button onClick={runEnvFetch} disabled={envLoading}
+              style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, padding: "10px 16px", borderRadius: 9, border: "none", cursor: envLoading ? "default" : "pointer", background: C.oliveDeep, color: C.onAccent, opacity: envLoading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+              {envLoading ? "Fetching…" : "Fetch conditions"}
+            </button>
+          </div>
+
+          {/* Manual conditions: room temperature (°F/°C) + humidity override */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
+            <label style={{ ...envFieldLabel, flex: "3 1 280px" }}>
+              Room temperature
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="number" value={roomTempInput} inputMode="decimal"
+                  onChange={(e) => setRoomTempInput(e.target.value)}
+                  style={{ ...envFieldInput, flex: 1, minWidth: 90 }} />
+                <div style={{ display: "flex", gap: 3, background: C.paperDeep, borderRadius: 8, padding: 3 }}>
+                  {["F", "C"].map((u) => {
+                    const on = tempUnit === u;
+                    return (
+                      <button key={u} type="button" onClick={() => switchTempUnit(u)}
+                        style={{ border: "none", borderRadius: 6, padding: "7px 11px", cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 600, background: on ? C.olive : "transparent", color: on ? C.onAccent : C.inkSoft, transition: "all .15s ease" }}>°{u}</button>
+                    );
+                  })}
+                </div>
+                <span style={{ fontFamily: mono, fontSize: 12, color: C.inkSoft, whiteSpace: "nowrap" }}>≈ {rtAltUnit}°{tempUnit === "F" ? "C" : "F"}</span>
+              </span>
+            </label>
+            <label style={{ ...envFieldLabel, flex: "2 1 160px" }}>
+              Humidity %
+              <input type="number" value={humidityManual} min={0} max={100} inputMode="decimal"
+                placeholder={envData ? `${envData.humidityPct} (fetched)` : "optional"}
+                onChange={(e) => setHumidityManual(e.target.value)} style={envFieldInput} />
+            </label>
+          </div>
+
+          <div style={{ marginTop: 9, fontSize: 12, color: C.inkSoft, fontStyle: "italic" }}>
+            Humidity uses the ZIP/day reading unless you enter your own — set it to your hygrometer value if a humidifier or HVAC makes your kitchen differ.{!envData ? " Add a ZIP and fetch for altitude effects." : ""}
+          </div>
+
+          {envError && (
+            <div style={{ marginTop: 11, fontSize: 13, color: C.rust, fontWeight: 600 }}>⚠ {envError}</div>
+          )}
+
+          {condReady && envAdj && (
+            <div style={{ marginTop: 14, background: C.brineBg, border: `1.5px solid ${C.rust}`, borderRadius: 12, padding: "13px 15px", animation: "riseIn .2s ease" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 11 }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>📍 {envData ? `${envData.place} · ${envData.date}` : "Your kitchen · manual conditions"}</span>
+                <button onClick={() => setEnvApplied((a) => !a)} disabled={!!special}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: envOn ? C.rust : "transparent", color: envOn ? C.onAccent : C.rust, border: `1.5px solid ${C.rust}`, borderRadius: 20, padding: "6px 13px", cursor: special ? "default" : "pointer", opacity: special ? 0.5 : 1, fontFamily: mono, fontSize: 12, fontWeight: 600 }}>
+                  {envOn ? "✓ applied to recipe" : envApplied && special ? "n/a for fixed recipe" : "apply to recipe"}
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {envStat("Elevation", envData ? `${envData.elevFt.toLocaleString()} ft` : "— add ZIP")}
+                {envStat(humidityIsManual ? "Humidity · yours" : "Humidity", `${humidityUsed}%`)}
+                {envStat("Room", `${round(rt)}°F · ${round((rt - 32) * 5 / 9)}°C`)}
+              </div>
+
+              <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 9 }}>
+                Scientific recalibration
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {[
+                  ...(envAdj.hydrationDelta !== 0 ? [{
+                    label: "Hydration",
+                    value: `${hydration}% → ${round(clamp(hydration + envAdj.hydrationDelta, 55, 100), 1)}%`,
+                    on: envOn,
+                    why: `${humidityUsed < ENV_BASE_RH ? "Dry air" : "Humid air"} (${humidityUsed}% RH${humidityIsManual ? ", your reading" : ""} vs ${ENV_BASE_RH}% baseline) shifts water ${envAdj.hydrationFromRH >= 0 ? "+" : ""}${round(envAdj.hydrationFromRH, 1)}%${envAdj.hydrationFromAlt > 0 ? `, altitude adds +${round(envAdj.hydrationFromAlt, 1)}% (drier, faster-evaporating air)` : ""}.`,
+                  }] : []),
+                  ...(envAdj.yeastFactor < 1 ? [{
+                    label: "Yeast",
+                    value: `×${envAdj.yeastFactor.toFixed(2)} (−${round((1 - envAdj.yeastFactor) * 100)}%)`,
+                    on: envOn,
+                    why: `At ${elevFtUsed.toLocaleString()} ft the lower air pressure lets fermentation gas expand more, so dough over-proofs — trim the yeast and watch the dough, not the clock.`,
+                  }] : []),
+                  {
+                    label: "Mixing-water temp",
+                    value: `${envAdj.waterTempF}°F`,
+                    on: true,
+                    why: `Desired-dough-temperature method: to hit ~${ENV_DDT_F}°F dough at a ${round(rt)}°F room (hand-mixed), start with water near this temperature.`,
+                  },
+                  ...(envAdj.bakeTempBumpF > 0 ? [{
+                    label: "Bake",
+                    value: `+${envAdj.bakeTempBumpF}°F, shorter`,
+                    on: true,
+                    why: "Standard high-altitude move: a hotter, shorter bake sets the crust before the fast-expanding crumb collapses.",
+                  }] : []),
+                  {
+                    label: "Ferment pace",
+                    value: envAdj.fermentFactor < 1 ? `~${round((1 - envAdj.fermentFactor) * 100)}% faster` : envAdj.fermentFactor > 1 ? `~${round((envAdj.fermentFactor - 1) * 100)}% longer` : "as scheduled",
+                    on: true,
+                    why: `Yeast activity roughly doubles per ~18°F (Q10≈2). Your ${round(rt)}°F room runs ${envAdj.fermentFactor < 1 ? "warmer than" : envAdj.fermentFactor > 1 ? "cooler than" : "right at"} the schedule's ${ENV_FERMENT_REF_F}°F assumption, so expect the bulk and proof to take ${envAdj.fermentFactor < 1 ? "less" : "more"} time.`,
+                  },
+                ].map((ln) => (
+                  <div key={ln.label} style={{ opacity: ln.on ? 1 : 0.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{ln.label}{!ln.on && <span style={{ fontFamily: mono, fontSize: 10.5, color: C.inkSoft, fontWeight: 400 }}> · toggle on to apply</span>}</span>
+                      <span style={{ fontFamily: mono, fontSize: 13.5, color: C.rust, fontWeight: 600, whiteSpace: "nowrap" }}>{ln.value}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.inkSoft, marginTop: 2 }}>{ln.why}</div>
+                  </div>
+                ))}
+              </div>
+              {special && (
+                <div style={{ marginTop: 11, fontSize: 12.5, color: C.inkSoft, fontStyle: "italic" }}>
+                  The water, bake and timing guidance still applies, but the hydration/yeast recalibration only folds into the dial-driven recipes — {specialDef.name} runs its own fixed formula.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Fixed-recipe banner — the dials don't apply here */}
         {special && (
           <div style={{ background: C.brineBg, border: `1.5px solid ${C.rust}`, borderRadius: 12, padding: "12px 15px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -984,9 +1274,9 @@ export default function FocacciaBuildSheet() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "4px 2px 10px" }}>
           <span>The dials</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 10, marginBottom: 12 }}>
           <Dial label="Crumb — hydration" value={hydration} min={65} max={90} step={1}
-            onChange={setHydration} readout={`${hydration}% · ${round(v.water)}g`} lo="tight / bread-y" hi="open / custardy"
+            onChange={setHydration} readout={envOn && envAdj.hydrationDelta !== 0 ? `${hydration}% → ${hydrationAdj}% · ${round(v.water)}g` : `${hydration}% · ${round(v.water)}g`} lo="tight / bread-y" hi="open / custardy"
             why="Water as a % of flour. Gluten forms from hydration plus kneading energy (Cauvain, Ch.2), and more water gives larger, more irregular holes and a moist, custardy crumb — at the cost of a slacker, wetter-to-handle dough. Below ~70% it bakes tighter and more sandwich-bread-like." />
           <Dial label="Ferment & tang" value={schIdx} min={0} max={3} step={1}
             onChange={setSchIdx} readout={`${sch.name} · ${sch.yeast}% yeast`} stops={["same-day", "night", "2-day", "3-day"]} accent
@@ -1138,7 +1428,7 @@ export default function FocacciaBuildSheet() {
         </>}
 
         {/* Display options: verbosity + dark mode */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 12 }}>
           <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px 11px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontSize: 15, fontWeight: 600 }}>Recipe detail</span>
