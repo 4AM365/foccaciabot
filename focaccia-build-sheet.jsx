@@ -133,7 +133,7 @@ const STYLES = [
     blurb: "Long, cold-fermented and very wet — a tall, wildly open, custardy crumb with a crisp, blistered top. Lean and restrained; the ferment does the flavour.",
     set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 7, doughOilPct: 3, saltPct: 2.4, semolinaPct: 5, twoPans: false } },
   { id: "barese", cat: "Classic Italian", name: "Pugliese · Barese", tag: "semola · tomato",
-    blurb: "Durum-semolina dough (golden, sandy crust), high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf.",
+    blurb: "Durum-semolina dough (golden, sandy crust), high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf. Traditional versions also work boiled, riced potato (~20% of the flour) into the dough for a soft, moist, long-keeping crumb — the dials don't model that, so add it yourself for full authenticity.",
     set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 4, saltPct: 2.2, semolinaPct: 15, twoPans: true } },
 
   // ---- Regional & obscure ----
@@ -498,6 +498,9 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   const oilNote = doughOilPct > 0
     ? ` Once the dough is cohesive, drizzle in the ${round(doughOilPct, 1)}% dough oil and mix until it's fully absorbed and glossy again — adding it after the gluten has formed keeps the oil from coating the proteins and blunting development.`
     : "";
+  // Short form for the always-visible spec line so the dough oil shows even in
+  // Terse mode (where the `why` text — and the full oilNote — is hidden).
+  const oilSpecNote = doughOilPct > 0 ? ` · then work in the ${round(doughOilPct, 1)}% dough oil till absorbed` : "";
   const handling = hydration >= 84 ? "very slack and glossy — work it with wet hands"
     : hydration >= 76 ? "slack but cohesive" : "supple and easy to handle";
   const hot = panOilPct >= 10;
@@ -508,7 +511,7 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
     steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F / 35–38°C) + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar · rest 20 min · then salt`,
       why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here.${bloom}`,
       more: `Aim to finish the dough around ${ddt} — warm, so it drives.` });
-    steps.push({ title: "Mix & develop", spec: `dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
+    steps.push({ title: "Mix & develop", spec: `dough hook · low speed · 6–8 min · target dough temp ${ddt}${oilSpecNote}`,
       why: `Add the salt now, then develop a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.${oilNote}`,
       more: `Watch the temperature: glossy and clearing the bowl, not over-beaten past ~28°C/82°F. Friction heats a fast dough quickly.` });
     steps.push({ title: "Warm bulk + oiled folds — the 1 hr rise", spec: `${sch.temp} · ${folds > 0 ? `${folds} oiled letter-fold${folds > 1 ? "s" : ""}` : "2 plain folds"} at 20 & 40 min · keep it covered`,
@@ -517,7 +520,7 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   } else {
     steps.push({ title: "Autolyse", spec: "ALL flour + all dough water · mix to shaggy · cover · rest 30–45 min",
       why: `Mix flour and water to a shaggy mass with no dry flour, cover, and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Cover it so the top can't dry. Hold yeast and salt for now.${bloom}` });
-    steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}`,
+    steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}${oilSpecNote}`,
       why: `Work in the yeast first, then the salt (added last so it doesn't fight the yeast or over-tighten early). Build a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry.${oilNote}`,
       more: `Finishing near ${ddt} sets a controlled, even cold ferment rather than a runaway one.` });
     steps.push({ title: "Bulk start + strength folds", spec: "3–4 coil/letter folds · 30 min apart · ~2 hr warm, covered",
