@@ -978,7 +978,8 @@ export default function FocacciaBuildSheet() {
             {TOPPINGS.map((t) => {
               const on = !!toppingSel[t.id];
               const trad = activeStyle !== "custom" && t.styles.includes(activeStyle);
-              const badge = activeStyle === "custom" ? `classic in ${t.styles.length}` : trad ? "traditional" : "modern twist";
+              const nStyles = t.styles.length;
+              const badge = activeStyle === "custom" ? `classic in ${nStyles} style${nStyles === 1 ? "" : "s"}` : trad ? "traditional" : "modern twist";
               const badgeCol = trad ? C.olive : C.inkSoft;
               return (
                 <button key={t.id} onClick={() => toggleTopping(t.id)} style={{
