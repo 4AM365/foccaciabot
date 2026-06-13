@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useContext } from "react";
+import goldmemberImg from "./goldmember.png";
 
 // ============================================================================
 // Focaccia Dashboard — drive the *qualities* (open crumb, tang, flake, fried
@@ -73,7 +74,7 @@ const SCHEDULES = [
 // honestly rather than faked with the dials.
 const STYLES = [
   // ---- The house ----
-  { id: "flaky", cat: "The house", name: "Flaky (hot-rod)", tag: "laminated · fried",
+  { id: "flaky", cat: "The house", name: "Flaky (thatsch a keeper)", tag: "laminated · fried",
     blurb: "The house build: a 3-day cold ferment, oiled lamination folds for a shreddy pull, and a deep pan-fry. Dough kept lean so the fat works the layers and the base, not the crumb.",
     set: { hydration: 82, schIdx: 3, folds: 3, panOilPct: 10, doughOilPct: 0, saltPct: 2.4, semolinaPct: 5, twoPans: true } },
   { id: "sameday", cat: "The house", name: "Same-day", tag: "weeknight",
@@ -679,6 +680,7 @@ export default function FocacciaBuildSheet() {
   const [dark, setDark] = useState(false);
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
+  const [flakyHeld, setFlakyHeld] = useState(false); // Goldmember easter egg: flaky button held down
 
   const C = dark ? THEMES.dark : THEMES.light;
 
@@ -817,11 +819,23 @@ export default function FocacciaBuildSheet() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
                 {STYLES.filter((s) => s.cat === cat).map((s) => {
                   const on = !special && activeStyle === s.id;
+                  // Easter egg: press-and-hold the house "flaky" tile to flash
+                  // Goldmember across its background — only this button, only while held.
+                  const held = s.id === "flaky" && flakyHeld;
+                  const holdProps = s.id === "flaky" ? {
+                    onMouseDown: () => setFlakyHeld(true),
+                    onMouseUp: () => setFlakyHeld(false),
+                    onMouseLeave: () => setFlakyHeld(false),
+                    onTouchStart: () => setFlakyHeld(true),
+                    onTouchEnd: () => setFlakyHeld(false),
+                  } : null;
                   return (
-                    <button key={s.id} onClick={() => applyStyle(s.id)} style={{
+                    <button key={s.id} onClick={() => applyStyle(s.id)} {...holdProps} style={{
                       display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
                       borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
-                      border: `1.5px solid ${on ? C.olive : C.line}`, background: on ? C.olive : C.card, color: on ? C.onAccent : C.ink }}>
+                      border: `1.5px solid ${on ? C.olive : C.line}`,
+                      background: held ? `url(${goldmemberImg}) center / cover no-repeat` : on ? C.olive : C.card,
+                      color: on ? C.onAccent : C.ink }}>
                       <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
                         {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
                       </span>
