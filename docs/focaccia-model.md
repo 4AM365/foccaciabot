@@ -16,8 +16,8 @@ title: Focaccia model — the equations
 ## Reading the graph
 
 - **Identity** (dashed) is what makes a focaccia *what it is* — the ferment schedule,
-  durum-semola share, boiled-potato share, the two-pan deep bake. The inverse never
-  solves it away.
+  durum-semola share, boiled-potato share, the pinsa rice/soy blend, the two-pan deep
+  bake. The inverse never solves it away.
 - **Levers** are the continuous dials tuned *within* an identity: hydration, folds,
   pan oil, dough oil, salt.
 - Every arrow is a term in the equation written inside the node it points to. A node
@@ -35,6 +35,7 @@ graph LR
     sch["sch = schIdx  (0–3)"]
     SEM["SEM = semolina/100"]
     POT["POT = potato/100"]
+    BLEND["BLEND = rice+soy/100"]
     twoPans["twoPans  (method flag)"]
   end
   subgraph LV["Levers — tuned within an identity"]
@@ -47,7 +48,7 @@ graph LR
 
   subgraph L1["Latent dough state — constitutive equations"]
     slack["slack = clamp(H − 0.60, 0, 0.40)"]
-    gluten["gluten = clamp( (0.55 + 0.15·folds)<br/>· (1 + 0.10·sch) · (1 − 0.6·DO)<br/>· (1 − 0.4·SEM) · (1 − 0.5·POT), 0, 2 )"]
+    gluten["gluten = clamp( (0.55 + 0.15·folds)<br/>· (1 + 0.10·sch) · (1 − 0.6·DO)<br/>· (1 − 0.4·SEM) · (1 − 0.5·POT)<br/>· (1 − 0.6·BLEND), 0, 2 )"]
     gas["gas = 0.45 + 0.17·sch"]
     tangState["tangState = 0.05 + 0.30·sch"]
     ovenSpring["ovenSpring = gas · sat(gluten)<br/>· (0.55 + 0.45·sat(slack/0.25))"]
@@ -59,7 +60,7 @@ graph LR
     openness["openness = lin( 1.5·slack + 0.6·gas<br/>+ 0.6·ovenSpring − 1.1·DO<br/>− 0.25·(1 − sat(gluten)), 0.05, 1.10 )"]
     tang["tang = lin(tangState, 0, 1)"]
     flake["flake = lin( folds·(0.45<br/>+ 0.55·sat(gluten)), 0, 4 )"]
-    crust["crust = lin( 6.0·friedBase + 0.4·blister<br/>+ 1.2·SEM − 0.7·DO, 0.30, 0.95 )"]
+    crust["crust = lin( 6.0·friedBase + 0.4·blister<br/>+ 1.2·SEM + 0.5·BLEND − 0.7·DO, 0.30, 0.95 )"]
     richness["richness = lin(DO + 0.30·PO, 0, 0.135)"]
     salt["salt = lin(S, 0.016, 0.028)"]
   end
@@ -71,6 +72,7 @@ graph LR
   DO --> gluten
   SEM --> gluten
   POT --> gluten
+  BLEND --> gluten
   sch --> gas
   sch --> tangState
   gas --> ovenSpring
@@ -91,13 +93,14 @@ graph LR
   friedBase --> crust
   blister --> crust
   SEM --> crust
+  BLEND --> crust
   DO --> crust
   DO --> richness
   PO --> richness
   S --> salt
 
   classDef identity stroke-dasharray:6 3,stroke-width:1.5px;
-  class sch,SEM,twoPans,POT identity;
+  class sch,SEM,twoPans,POT,BLEND identity;
 ```
 
 `twoPans` is an identity dimension that selects the bake *method/format* but does not
@@ -112,7 +115,7 @@ squared-error loss, so freestyle targets still land on a real style.
 ```mermaid
 graph LR
   target["target qualities  q*<br/>(6 slider values)"]
-  identity["identity held fixed<br/>(sch, SEM, twoPans)"]
+  identity["identity held fixed<br/>(sch, SEM, POT, BLEND, twoPans)"]
   guess["lever guess  x<br/>(hydration, folds, panOil,<br/>doughOil, salt)"]
   fwd["forward model<br/>q = qualities(identity, x)"]
   loss["loss = Σₖ wₖ·(qₖ − q*ₖ)²<br/>+ 5·Σⱼ ((xⱼ − priorⱼ)/(hiⱼ − loⱼ))²"]

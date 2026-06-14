@@ -165,8 +165,8 @@ const STYLES = [
     blurb: "Roman pizza bianca — a long, wildly blistered, very wet dough stretched on the peel, slicked with oil and salt and torn warm. Lean and long-fermented; the bakery staple that becomes pizza rossa with a swipe of tomato.",
     set: { hydration: 85, schIdx: 2, folds: 0, panOilPct: 7, doughOilPct: 2, saltPct: 2.3, semolinaPct: 0, twoPans: false } },
   { id: "pinsa", cat: "Regional & obscure", name: "Pinsa romana", tag: "oval · airy",
-    blurb: "The modern Roman pinsa: an oval, ultra-light flatbread from a blend of wheat, rice and soy flours at very high hydration and a 48–72 hr cold rise — crisp shell, cloud crumb, famously digestible. The dials model the method; the rice/soy blend (~20%) you'd swap in yourself.",
-    set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 6, doughOilPct: 3, saltPct: 2.4, semolinaPct: 0, twoPans: false } },
+    blurb: "The modern Roman pinsa: an oval, ultra-light flatbread from a blend of wheat, rice and soy flours at very high hydration and a 48–72 hr cold rise — crisp shell, cloud crumb, famously digestible. The ~20% rice/soy blend is folded into the recipe below.",
+    set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 6, doughOilPct: 3, saltPct: 2.4, semolinaPct: 0, twoPans: false, pinsaBlendPct: 20 } },
   { id: "fougasse", cat: "Regional & obscure", name: "Fougasse provençale", tag: "France · leaf",
     blurb: "Provence's fougasse — the French focaccia, slashed into a leaf or ladder so it's nearly all crust. Olive oil, herbes de Provence, often olives or lardons. Lower hydration so the open lattice holds its shape.",
     set: { hydration: 70, schIdx: 1, folds: 0, panOilPct: 7, doughOilPct: 4, saltPct: 2.2, semolinaPct: 0, twoPans: false } },
@@ -367,10 +367,14 @@ const TOPPINGS = [
     short: "needles pressed in & oiled at dimpling",
     prep: "Strip the needles (or keep small sprigs). Press them into the dough at dimpling and coat with the brine oil so they don't scorch — woody herbs burn fast on top of a 230–260°C bake.",
     prepSteps: ["Strip needles or keep small sprigs", "Press into the dough at dimpling", "Coat with brine oil so they don't scorch"] },
-  { id: "tomato", icon: "🍅", label: "Cherry tomatoes", styles: ["flaky", "barese", "sameday", "sardenaira", "sfincione", "messinese"],
+  { id: "tomato", icon: "🍅", label: "Cherry tomatoes", styles: ["flaky", "barese", "sameday"],
     short: "halved, cut-side up in the wells", water: true,
     prep: "Halve and press cut-side up into the wells at dimpling so they roast in the oil rather than steam. For deeper flavour, smash & roast them first — that concentrates the glutamate and sugars and builds Maillard browning — then add for the 450°F phase, slicked with brine oil so the already-caramelised sugars don't scorch. Either way they're ~95% water and weep into the crumb, so account for that in your hydration (see the tomato panel).",
     prepSteps: ["Halve the tomatoes", "Press cut-side up into the oiled wells", "Slick with brine oil before baking"] },
+  { id: "passata", icon: "🥫", label: "Tomato sauce (passata)", styles: ["sardenaira", "sfincione", "messinese"],
+    short: "cooked sauce spread over the top",
+    prep: "The defining layer of the sauce focacce: simmer passata with garlic and good oil (slow-cook sliced onion into it for sfincione) until thick and jammy, season, and cool. Spread it over the dimpled dough before the olives, anchovy, capers and cheese — it's the base everything sits in, not a garnish.",
+    prepSteps: ["Simmer passata with garlic + oil (onion for sfincione) until thick", "Season and cool", "Spread over the dimpled dough before the other toppings"] },
   { id: "olives", icon: "🫒", label: "Olives", styles: ["genovese", "barese", "sardenaira", "fougasse"],
     short: "pitted, patted dry, pressed in",
     prep: "Use good brined olives (Taggiasca, Cerignola), pitted and patted dry so surface brine doesn't make wet spots. Press them into the dough at dimpling.",
@@ -419,6 +423,7 @@ const TOPPINGS = [
 const TOPPING_PLAN = {
   rosemary:    { phase: "dimple", do: "Strip needles / keep small sprigs; press in & oil" },
   tomato:      { phase: "dimple", do: "Halve; press cut-side up in the oiled wells" }, // roast mode overridden in buildTimeline
+  passata:     { phase: "wait",   do: "Simmer passata with garlic/onion till thick; cool", dur: "~20 min", dep: "make ahead — it's the base layer, spread before the rest" },
   olives:      { phase: "dimple", do: "Pit & pat dry; press in", dep: "pat dry or the brine makes wet spots" },
   anchovy:     { phase: "dimple", do: "Rinse & bone; lay into the sauce / on the dough" },
   capers:      { phase: "dimple", do: "Rinse & pat dry; scatter on" },
@@ -822,7 +827,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     ? solveWithin(q, identityOf(STYLE_BY_ID[boundStyle].set), {})
     : solveConforming(q, STYLES, {}), [q, boundStyle]);
   const recipe = solved.recipe;
-  const { hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans, potatoPct } = recipe;
+  const { hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans, potatoPct, pinsaBlendPct } = recipe;
   const [yeastType, setYeastType] = useState("instant");
   const [toppingSel, setToppingSel] = useState({ rosemary: true });
   const [tomatoMode, setTomatoMode] = useState("raw"); // raw | roast
@@ -947,7 +952,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const v = useMemo(() => {
     const sem = f * (semolinaPct / 100);
     const potato = f * ((potatoPct || 0) / 100);
-    const breadFlour = f - sem;
+    const blend = f * ((pinsaBlendPct || 0) / 100);
+    const breadFlour = f - sem - blend;
     const water = f * (hydrationAdj / 100);
     const salt = f * (saltPct / 100);
     const yFactor = (YEAST_TYPES[yeastType] || YEAST_TYPES.instant).factor;
@@ -963,8 +969,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     const brineSalt = f * (BRINE_SALT / 100);
     const doughWeight = f + water + salt + yeast + sugar + doughOil + potato;
     const totalOil = panOil + doughOil + foldOil + brineOil;
-    return { sem, potato, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
-  }, [f, hydrationAdj, saltPct, semolinaPct, potatoPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
+    return { sem, potato, blend, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
+  }, [f, hydrationAdj, saltPct, semolinaPct, potatoPct, pinsaBlendPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
 
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
@@ -974,8 +980,9 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   // rows, assembled into method-ordered steps. (Special recipes keep their own
   // hand-authored groups; `groups` selects between them below.)
   const compact = (arr) => arr.filter(Boolean);
-  const rFlour = { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) };
+  const rFlour = { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct - (pinsaBlendPct || 0), 1) };
   const rSem = semolinaPct > 0 ? { k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true } : null;
+  const rBlend = v.blend > 0 ? { k: "Rice + soy flour blend", g: round(v.blend), pct: round(pinsaBlendPct || 0, 1), accent: true, note: "the pinsa blend — light, crisp, digestible" } : null;
   const rPotato = v.potato > 0 ? { k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled ahead — tenderises the crumb (barese tradition)" } : null;
   const rWater = { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
     g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
@@ -990,9 +997,9 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const dialGroups = compact([
     express
       ? { title: "01 · Fermentolyse — one bowl", caption: "everything but the salt; rest 20 min so the flour hydrates and the yeast wakes",
-          items: compact([rFlour, rSem, rPotato, rWater, rYeast, rSugar]) }
+          items: compact([rFlour, rSem, rBlend, rPotato, rWater, rYeast, rSugar]) }
       : { title: "01 · Autolyse — flour & water", caption: "mix to a shaggy mass, cover, rest 30–45 min — no yeast or salt yet",
-          items: compact([rFlour, rSem, rPotato, rWater]) },
+          items: compact([rFlour, rSem, rBlend, rPotato, rWater]) },
     express
       ? { title: "02 · Salt, then develop", caption: "add the salt and mix to a cohesive, glossy dough",
           items: compact([rSalt, rDoughOil]) }

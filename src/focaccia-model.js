@@ -41,6 +41,7 @@ export function state(r) {
   const DO = r.doughOilPct / 100;    // oil worked into the dough
   const SEM = r.semolinaPct / 100;   // durum semola share
   const POT = (r.potatoPct || 0) / 100; // boiled, riced potato worked into the dough
+  const BLEND = (r.pinsaBlendPct || 0) / 100; // rice + soy flour blend (pinsa) — ~no gluten
   const folds = r.folds;             // lamination letter-folds (0–4)
   const sch = r.schIdx;              // ferment schedule 0=same-day … 3=3-day cold
 
@@ -50,9 +51,10 @@ export function state(r) {
 
   // Gluten network: lamination folds and a long ferment develop it; oil shortens
   // it; durum semola's gluten is weaker/shorter; boiled potato starch tenderises
-  // it further (the soft, moist barese/pugliese crumb). [gluten_development_folds],
+  // it further (the soft, moist barese/pugliese crumb); the pinsa rice/soy blend
+  // carries almost no gluten at all. [gluten_development_folds],
   // [fat_shortens_gluten], [flour_gluten]
-  const gluten = clamp((0.55 + 0.15 * folds) * (1 + 0.10 * sch) * (1 - 0.6 * DO) * (1 - 0.4 * SEM) * (1 - 0.5 * POT), 0, 2);
+  const gluten = clamp((0.55 + 0.15 * folds) * (1 + 0.10 * sch) * (1 - 0.6 * DO) * (1 - 0.4 * SEM) * (1 - 0.5 * POT) * (1 - 0.6 * BLEND), 0, 2);
 
   // Fermentation: a longer/colder schedule builds more gas and more acidity
   // (tang), even though the yeast dose drops. [fermentation_gas_tang]
@@ -67,7 +69,7 @@ export function state(r) {
   const blister = sat((H - 0.76) / 0.14);
   const friedBase = PO;
 
-  return { H, S, PO, DO, SEM, POT, folds, sch, slack, gluten, gas, tangState, ovenSpring, blister, friedBase };
+  return { H, S, PO, DO, SEM, POT, BLEND, folds, sch, slack, gluten, gas, tangState, ovenSpring, blister, friedBase };
 }
 
 // ============================================================================
@@ -90,8 +92,8 @@ export function qualities(r) {
   const flake = lin(s.folds * (0.45 + 0.55 * sat(s.gluten)), 0.0, 4.0);
 
   // CRUST: pan oil fries it hard, a wet dough blisters crisp, durum bakes a sandy
-  // fracturing crust; dough oil softens the whole thing.
-  const crust = lin(6.0 * s.friedBase + 0.4 * s.blister + 1.2 * s.SEM - 0.7 * s.DO, 0.30, 0.95);
+  // fracturing crust, the pinsa rice/soy blend crisps a light shell; dough oil softens it.
+  const crust = lin(6.0 * s.friedBase + 0.4 * s.blister + 1.2 * s.SEM + 0.5 * s.BLEND - 0.7 * s.DO, 0.30, 0.95);
 
   // RICHNESS: oil — dough oil dominates the crumb, pan oil adds some.
   const richness = lin(s.DO + 0.30 * s.PO, 0.0, 0.135);
@@ -129,7 +131,7 @@ const PRIOR = Object.fromEntries(CONT.map((c) => [c.key, c.prior]));
 //   semolinaPct  durum-semola vs plain wheat
 //   twoPans      the two-pan / deep-fry bake
 // LEVERS — the continuous dials tuned within an identity.
-export const IDENTITY_KEYS = ["schIdx", "semolinaPct", "twoPans", "potatoPct"];
+export const IDENTITY_KEYS = ["schIdx", "semolinaPct", "twoPans", "potatoPct", "pinsaBlendPct"];
 export const LEVER_KEYS = CONT.map((c) => c.key);
 
 const DISCRETE = {
