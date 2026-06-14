@@ -1357,13 +1357,13 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
           </div>
         </div>
 
-        {/* What the qualities tell you to use — the solved formula & method */}
+        {/* Calculated variables — the levers solved from your qualities (the "how") */}
         <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 9, flexWrap: "wrap", gap: 6 }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>Use this — solved from your qualities</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Calculated variables</span>
             <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>{boundStyle ? `within ${STYLE_BY_ID[boundStyle].name}` : "freestyle"} · {Math.round(100 * Math.exp(-solved.residual / 500))}% match</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+          <div style={{ border: `1px solid ${C.line}`, borderRadius: 9, overflow: "hidden" }}>
             {[
               ["Ferment", sch.name, sch.tang],
               ["Hydration", `${hydration}%`, hydration >= 84 ? "open & custardy" : hydration >= 76 ? "airy & balanced" : "tight & bread-y"],
@@ -1371,11 +1371,11 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
               ["Grain", semolinaPct > 0 ? `${semolinaPct}% durum` : "all bread flour", semolinaPct > 0 ? "sandy crust" : "smooth crumb"],
               ["Oil", `${round(doughOilPct, 1)}% dough · ${panOilPct}% pan`, "tender vs. fried base"],
               ["Bake", twoPans ? "two pans" : "one pan", `${round(saltPct, 1)}% salt`],
-            ].map(([k, val, sub]) => (
-              <div key={k} style={{ background: C.paperDeep, border: `1px solid ${C.line}`, borderRadius: 9, padding: "9px 11px" }}>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{k}</div>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: C.olive }}>{val}</div>
-                <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.3 }}>{sub}</div>
+            ].map(([k, val, sub], i) => (
+              <div key={k} style={{ display: "grid", gridTemplateColumns: "84px 1fr auto", alignItems: "baseline", gap: 10, padding: "6px 11px", borderTop: i === 0 ? "none" : `1px solid ${C.line}`, background: i % 2 ? C.paperDeep : "transparent" }}>
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{k}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.olive }}>{val}</span>
+                <span style={{ fontSize: 11, color: C.inkSoft, textAlign: "right" }}>{sub}</span>
               </div>
             ))}
           </div>
