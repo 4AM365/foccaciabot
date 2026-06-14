@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useContext } from "react";
+import React, { useState, useMemo, useContext, useEffect } from "react";
+import { QUALITY_AXES, qualities, solveWithin, solveConforming, IDENTITY_KEYS } from "./src/focaccia-model.js";
 
 // ============================================================================
 // Focaccia Dashboard — drive the *qualities* (open crumb, tang, flake, fried
@@ -33,6 +34,36 @@ const THEMES = {
     line: "#3a322a", card: "#221c16", onAccent: "#f7efe2",
     glow: "radial-gradient(circle at 20% 10%, rgba(226,125,71,0.10), transparent 42%), radial-gradient(circle at 85% 0%, rgba(148,165,87,0.10), transparent 45%)",
     brineBg: "rgba(226,125,71,0.10)",
+  },
+  // GeoCities skin — 1998 palette mapped onto the focaccia accent keys.
+  geoLight: {
+    paper: "#cfcfee", paperDeep: "#bcbce4", ink: "#000000", inkSoft: "#000080",
+    olive: "#ff00ff", oliveDeep: "#c800c8", rust: "#0000ee", crust: "#ff6a00",
+    line: "#808080", card: "#ffffcc", onAccent: "#ffffff",
+    glow: "none",
+    brineBg: "rgba(255,0,255,0.10)",
+  },
+  geoDark: {
+    paper: "#000018", paperDeep: "#000010", ink: "#00ff66", inkSoft: "#33ccff",
+    olive: "#ff00ff", oliveDeep: "#aa00aa", rust: "#ffe000", crust: "#ff8c00",
+    line: "#5454aa", card: "#0a0a30", onAccent: "#ffffff",
+    glow: "none",
+    brineBg: "rgba(255,224,0,0.10)",
+  },
+  // JDM — the blog's default vibe (white / purple), so the widget stays coherent.
+  jdmLight: {
+    paper: "#ffffff", paperDeep: "#ece9f5", ink: "#1a1730", inkSoft: "#6b6688",
+    olive: "#6d28d9", oliveDeep: "#5b21b6", rust: "#7c3aed", crust: "#a78bfa",
+    line: "#d8d3ea", card: "#faf9fd", onAccent: "#ffffff",
+    glow: "radial-gradient(circle at 20% 10%, rgba(109,40,217,0.05), transparent 40%), radial-gradient(circle at 85% 0%, rgba(167,139,250,0.06), transparent 45%)",
+    brineBg: "rgba(109,40,217,0.07)",
+  },
+  jdmDark: {
+    paper: "#14101e", paperDeep: "#26213a", ink: "#f5f3fc", inkSoft: "#9b95b5",
+    olive: "#a78bfa", oliveDeep: "#7c3aed", rust: "#c084fc", crust: "#c084fc",
+    line: "#3a3358", card: "#1e1830", onAccent: "#14101e",
+    glow: "radial-gradient(circle at 20% 10%, rgba(167,139,250,0.10), transparent 42%), radial-gradient(circle at 85% 0%, rgba(192,132,252,0.10), transparent 45%)",
+    brineBg: "rgba(167,139,250,0.10)",
   },
 };
 const ThemeCtx = React.createContext(THEMES.light);
@@ -73,7 +104,7 @@ const SCHEDULES = [
 // honestly rather than faked with the dials.
 const STYLES = [
   // ---- The house ----
-  { id: "flaky", cat: "The house", name: "Flaky (hot-rod)", tag: "laminated · fried",
+  { id: "flaky", cat: "The house", name: "Flaky (thatsch a keeper)", tag: "laminated · fried",
     blurb: "The house build: a 3-day cold ferment, oiled lamination folds for a shreddy pull, and a deep pan-fry. Dough kept lean so the fat works the layers and the base, not the crumb.",
     set: { hydration: 82, schIdx: 3, folds: 3, panOilPct: 10, doughOilPct: 0, saltPct: 2.4, semolinaPct: 5, twoPans: true } },
   { id: "sameday", cat: "The house", name: "Same-day", tag: "weeknight",
@@ -117,7 +148,21 @@ const STYLES = [
 const STYLE_CATS = ["The house", "Classic Italian", "Regional & obscure"];
 const STYLE_BY_ID = Object.fromEntries(STYLES.map((s) => [s.id, s]));
 const DEFAULT_STYLE = "flaky";
-const STYLE_KEYS = ["hydration", "schIdx", "folds", "panOilPct", "doughOilPct", "saltPct", "semolinaPct", "twoPans"];
+// Each preset is now a *quality target* (its hand-authored recipe's forward
+// qualities); selecting a style drives the sliders and the inverse re-derives a
+// matching formula within that style's identity.
+STYLES.forEach((s) => { const qq = qualities(s.set); s.q = Object.fromEntries(QUALITY_AXES.map((a) => [a.key, Math.round(qq[a.key])])); });
+const identityOf = (set) => Object.fromEntries(IDENTITY_KEYS.map((k) => [k, set[k]]));
+
+// Short, corpus-grounded notes for each quality slider (src/focaccia-model.js CITES).
+const QUALITY_WHY = {
+  openness: "How open the crumb is. Slack high-hydration water, fermentation gas and oven spring blow big irregular holes; oil tightens it and weak gluten collapses it (Cauvain — mixing & proving).",
+  tang: "Clean & fresh vs. deep & sour — set by the ferment schedule. A long cold rise builds organic acids and aroma (Cauvain — breadmaking processes).",
+  flake: "Pillowy vs. shreddy. Oiled letter-folds laminate thin fat films into tearing layers — they need gluten to build the sheets.",
+  crust: "Soft vs. hard & fried. Pan oil shallow-fries the base crisp, a wet dough blisters, durum bakes a sandy crust; dough oil softens it.",
+  richness: "Olive oil — dough oil tenderises the crumb, pan oil enriches the base (Cauvain lists fat as a softening improver).",
+  salt: "The salt load — seasons, tightens the gluten and slows the yeast (Cauvain, Ch.2).",
+};
 
 // ---- Beyond the dials: fixed recipes -------------------------------------
 // These focacce break the dial model — unleavened, or enriched/sweet with eggs,
@@ -281,10 +326,8 @@ const SPECIAL_STYLES = [
 ];
 const SPECIAL_BY_ID = Object.fromEntries(SPECIAL_STYLES.map((s) => [s.id, s]));
 
-function matchStyle(cur) {
-  const hit = STYLES.find((s) => STYLE_KEYS.every((k) => s.set[k] === cur[k]));
-  return hit ? hit.id : "custom";
-}
+// (a style is an explicit binding now — see boundStyle; freestyle conforms to
+// the nearest style via the model's classify().)
 
 // ---- Traditional toppings & herbs ------------------------------------------
 // `styles` = which traditions a topping is classic for (drives the badge).
@@ -373,6 +416,87 @@ const TOMATO_MODES = { raw: "Halved, raw", roast: "Smash & roast" };
 function round(n, dp = 0) {
   const f = Math.pow(10, dp);
   return Math.round(n * f) / f;
+}
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+// ---------------------------------------------------------------------------
+// Kitchen environment — altitude, humidity & room temperature recalibration
+// ---------------------------------------------------------------------------
+// Three things about *where and when* you bake change a yeasted dough, and each
+// maps to one lever by a distinct, well-understood mechanism:
+//   • Ambient humidity → hydration. Flour equilibrates with the air's moisture
+//     and the dough surface evaporates faster in dry air, so a dry day wants a
+//     little more water and a humid day a little less.
+//   • Altitude → yeast (+ a small hydration bump). Lower air pressure lets the
+//     same fermentation gas expand more, so dough proofs faster and over-proofs
+//     easily — trim the yeast. The thinner, drier air also evaporates faster,
+//     so add a touch of water and bake hotter/shorter (standard high-altitude
+//     baking guidance, which kicks in around 3000 ft).
+//   • Room temperature → mixing-water temperature and real ferment speed. The
+//     baker's desired-dough-temperature (DDT) method sets water temp from the
+//     room; and yeast activity roughly doubles per ~18°F (a Q10 of ≈2), so a
+//     warm kitchen runs faster than the schedule's nominal clock.
+const ENV_BASE_RH = 60;             // % RH the base formula assumes
+const ENV_ALT_THRESHOLD_FT = 3000;  // high-altitude adjustments begin here
+const ENV_DDT_F = 78;               // target dough temperature after mixing
+const ENV_FRICTION_F = 5;           // hand-mix friction factor for DDT
+const ENV_FERMENT_REF_F = 75;       // room temp the schedule clocks assume
+
+function computeEnvAdjust({ elevFt, humidityPct, roomTempF }) {
+  const ftAbove = Math.max(0, elevFt - ENV_ALT_THRESHOLD_FT);
+  // Humidity → hydration: ±0.05% water per 1% RH away from baseline, gently capped.
+  const hydrationFromRH = clamp((ENV_BASE_RH - humidityPct) * 0.05, -2.5, 2.5);
+  // Altitude → hydration: +0.5% water per 1000 ft above the threshold, capped.
+  const hydrationFromAlt = clamp((ftAbove / 1000) * 0.5, 0, 4);
+  const hydrationDelta = round(hydrationFromRH + hydrationFromAlt, 1);
+  // Altitude → yeast: trim ~0.5% of the dose per 100 ft above the threshold.
+  const yeastFactor = clamp(1 - (ftAbove / 100) * 0.005, 0.7, 1);
+  // Altitude → hotter, shorter bake.
+  const bakeTempBumpF = elevFt > 6000 ? 25 : elevFt > ENV_ALT_THRESHOLD_FT ? 15 : 0;
+  // Room temp → mixing-water temp (DDT, three factors: flour≈room, room, friction).
+  const waterTempF = clamp(Math.round(3 * ENV_DDT_F - (2 * roomTempF + ENV_FRICTION_F)), 50, 120);
+  // Room temp → ferment-speed multiplier vs. the schedule's reference temp (Q10≈2).
+  const fermentFactor = Math.pow(2, (ENV_FERMENT_REF_F - roomTempF) / 18);
+  return { elevFt, humidityPct, roomTempF, ftAbove, hydrationFromRH, hydrationFromAlt,
+    hydrationDelta, yeastFactor, bakeTempBumpF, waterTempF, fermentFactor };
+}
+
+// ZIP → lat/lon (Zippopotam.us) → elevation + that day's mean humidity
+// (Open-Meteo). All three are free, key-less, CORS-enabled browser APIs.
+async function fetchKitchenEnv(zip, dateISO) {
+  const z = String(zip).trim();
+  if (!/^\d{5}$/.test(z)) throw new Error("Enter a 5-digit US ZIP code.");
+  const geoR = await fetch(`https://api.zippopotam.us/us/${z}`);
+  if (!geoR.ok) throw new Error(`No US location found for ZIP ${z}.`);
+  const geo = await geoR.json();
+  const place = geo.places && geo.places[0];
+  if (!place) throw new Error(`No US location found for ZIP ${z}.`);
+  const lat = Number(place.latitude), lon = Number(place.longitude);
+  const placeName = `${place["place name"]}, ${place["state abbreviation"] || place.state}`;
+  const day = 864e5;
+  const today = new Date().toISOString().slice(0, 10);
+  const earliest = new Date(Date.now() - 90 * day).toISOString().slice(0, 10);
+  const latest = new Date(Date.now() + 16 * day).toISOString().slice(0, 10);
+  // Open-Meteo's forecast model serves ~90 days back to 16 days ahead; older
+  // dates come from the historical archive instead.
+  const wxBase = (dateISO >= earliest && dateISO <= latest)
+    ? "https://api.open-meteo.com/v1/forecast"
+    : "https://archive-api.open-meteo.com/v1/archive";
+  const [elevR, wxR] = await Promise.all([
+    fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`),
+    fetch(`${wxBase}?latitude=${lat}&longitude=${lon}&hourly=relative_humidity_2m&start_date=${dateISO}&end_date=${dateISO}&timezone=auto`),
+  ]);
+  if (!elevR.ok) throw new Error("Couldn't fetch elevation for that location.");
+  if (!wxR.ok) throw new Error("Couldn't fetch the weather for that date.");
+  const elevJ = await elevR.json();
+  const wxJ = await wxR.json();
+  const elevM = Array.isArray(elevJ.elevation) ? elevJ.elevation[0] : elevJ.elevation;
+  const rh = ((wxJ.hourly && wxJ.hourly.relative_humidity_2m) || []).filter((x) => x != null);
+  if (elevM == null) throw new Error("Couldn't read elevation for that location.");
+  if (!rh.length) throw new Error("No humidity data for that date — try one within ~2 weeks.");
+  const humidityPct = Math.round(rh.reduce((a, b) => a + b, 0) / rh.length);
+  return { place: placeName, elevM: Math.round(elevM), elevFt: Math.round(elevM * 3.28084),
+    humidityPct, date: dateISO };
 }
 
 // ---------------------------------------------------------------------------
@@ -656,45 +780,78 @@ function TimeGraph({ phases, spine, tracks, C, accent }) {
 }
 
 // ---------------------------------------------------------------------------
-export default function FocacciaBuildSheet() {
-  const D0 = STYLE_BY_ID[DEFAULT_STYLE].set;
+// goldmemberSrc: the "Flaky" easter-egg tile background. Defaults to a host-served
+// path (the blog serves it from quartz/static); pass a prop to override standalone.
+export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember.png" } = {}) {
+  const D0 = STYLE_BY_ID[DEFAULT_STYLE];
   // master scale
   const [flour, setFlour] = useState(500);
-  // quality dials (initialised from the default style)
-  const [hydration, setHydration] = useState(D0.hydration);
-  const [schIdx, setSchIdx] = useState(D0.schIdx);
-  const [folds, setFolds] = useState(D0.folds);
-  const [panOilPct, setPanOilPct] = useState(D0.panOilPct);
-  const [doughOilPct, setDoughOilPct] = useState(D0.doughOilPct);
-  const [saltPct, setSaltPct] = useState(D0.saltPct);
-  const [semolinaPct, setSemolinaPct] = useState(D0.semolinaPct);
-  // options
-  const [twoPans, setTwoPans] = useState(D0.twoPans);
+  // The six quality sliders — what you drive. The recipe (hydration, lamination,
+  // oils, salt + the style's locked schedule/semola/two-pan identity) is *solved*
+  // from them. Binary mode: bound to a style (identity locked) or freestyle
+  // (conforms to the nearest style). See src/focaccia-model.js.
+  const [q, setQ] = useState(D0.q);
+  const [boundStyle, setBoundStyle] = useState(DEFAULT_STYLE);
+  const solved = useMemo(() => boundStyle
+    ? solveWithin(q, identityOf(STYLE_BY_ID[boundStyle].set), {})
+    : solveConforming(q, STYLES, {}), [q, boundStyle]);
+  const recipe = solved.recipe;
+  const { hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans } = recipe;
   const [yeastType, setYeastType] = useState("instant");
   const [toppingSel, setToppingSel] = useState({ rosemary: true });
   const [tomatoMode, setTomatoMode] = useState("raw"); // raw | roast
   const [tomatoPct, setTomatoPct] = useState(20);       // cherry tomatoes as % of flour
   const [prepDone, setPrepDone] = useState({});         // mise-en-place checklist
-  const [verbosity, setVerbosity] = useState(1);
-  const [dark, setDark] = useState(false);
+  const verbosity = 1; // steps are always succinct — the verbosity control was dropped
+  // Light/dark + vibe inherit from the host Quartz blog (`saved-theme` /
+  // `saved-vibe` on <html>); standalone → light + jdm.
+  const [dark, setDark] = useState(() => {
+    try { return document.documentElement.getAttribute("saved-theme") === "dark"; } catch { return false; }
+  });
+  const [vibe, setVibe] = useState(() => {
+    try { return document.documentElement.getAttribute("saved-vibe") || "jdm"; } catch { return "jdm"; }
+  });
+  useEffect(() => {
+    const onTheme = (e) => { if (e && e.detail && e.detail.theme) setDark(e.detail.theme === "dark"); };
+    const onVibe = (e) => { if (e && e.detail && e.detail.vibe) setVibe(e.detail.vibe); };
+    document.addEventListener("themechange", onTheme);
+    document.addEventListener("vibechange", onVibe);
+    return () => { document.removeEventListener("themechange", onTheme); document.removeEventListener("vibechange", onVibe); };
+  }, []);
   const [openStep, setOpenStep] = useState("01");
   const [special, setSpecial] = useState(null); // a "beyond the dials" fixed recipe, or null
+  // kitchen environment (altitude + humidity for a ZIP/day, plus room temp)
+  const [zip, setZip] = useState("");
+  const [envDate, setEnvDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [roomTempInput, setRoomTempInput] = useState("72"); // value as typed, in `tempUnit`
+  const [tempUnit, setTempUnit] = useState("F");            // 'F' | 'C'
+  const [humidityManual, setHumidityManual] = useState(""); // blank = use the fetched value
+  const [envData, setEnvData] = useState(null);     // { place, elevFt, elevM, humidityPct, date }
+  const [envLoading, setEnvLoading] = useState(false);
+  const [envError, setEnvError] = useState("");
+  const [envApplied, setEnvApplied] = useState(true); // fold the recalibration into the recipe
 
-  const C = dark ? THEMES.dark : THEMES.light;
+  // Inherit the page's vibe + brightness → palette (standalone defaults to jdm).
+  const C = vibe === "geocities" ? (dark ? THEMES.geoDark : THEMES.geoLight)
+          : vibe === "modern"    ? (dark ? THEMES.dark : THEMES.light)
+          : (dark ? THEMES.jdmDark : THEMES.jdmLight);
 
   function applyStyle(id) {
     const s = STYLE_BY_ID[id];
     if (!s) return;
     setSpecial(null);
-    const k = s.set;
-    setHydration(k.hydration); setSchIdx(k.schIdx); setFolds(k.folds);
-    setPanOilPct(k.panOilPct); setDoughOilPct(k.doughOilPct);
-    setSaltPct(k.saltPct); setSemolinaPct(k.semolinaPct); setTwoPans(k.twoPans);
+    setBoundStyle(id);   // bind to this style — its identity is now locked
+    setQ(s.q);           // drive the sliders to this style's quality profile
+  }
+  function goFreestyle() {
+    setSpecial(null);
+    setBoundStyle(null); // unbind — the model conforms to the nearest style
   }
   function applySpecial(id) { setSpecial(id); setOpenStep("01"); }
   const toggleTopping = (id) => setToppingSel((t) => ({ ...t, [id]: !t[id] }));
   const togglePrep = (key) => setPrepDone((p) => ({ ...p, [key]: !p[key] }));
-  const activeStyle = matchStyle({ hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans });
+  const activeStyle = boundStyle || "custom";
+  const freestyleNearest = (!boundStyle && !special) ? solved.style : null;
   const selectedToppings = TOPPINGS.filter((t) => toppingSel[t.id]);
 
   const f = Math.max(0, Number(flour) || 0);
@@ -711,13 +868,61 @@ export default function FocacciaBuildSheet() {
   const tomato = { on: tomatoOn, mode: tomatoMode, pct: tomatoPct, load: tomatoLoad,
     water: tomatoWater, eff: effHydration, suggested: suggestedHyd };
 
+  // Kitchen-environment recalibration. Room temperature is entered in °F or °C
+  // (converted to °F for the science). Humidity comes from the ZIP/day fetch but
+  // a manual entry overrides it — useful when a humidifier or HVAC makes the
+  // indoor air differ from outdoors. The altitude + humidity deltas only fold
+  // into the live recipe once we have a humidity figure and "apply" is on (and
+  // never over a fixed recipe, which carries its own formula). Altitude needs a
+  // fetched elevation; without one it's treated as sea level.
+  const rtRaw = Number(roomTempInput);
+  const rtF = tempUnit === "C" ? rtRaw * 9 / 5 + 32 : rtRaw;
+  const rt = clamp(Number.isFinite(rtF) ? rtF : ENV_FERMENT_REF_F, 40, 110);
+  const rtAltUnit = tempUnit === "F" ? round((rt - 32) * 5 / 9, 1) : round(rt, 1); // the other-unit readout
+  const humidityUsed = humidityManual.trim() !== "" ? clamp(Number(humidityManual) || 0, 0, 100)
+    : (envData ? envData.humidityPct : null);
+  const humidityIsManual = humidityManual.trim() !== "";
+  const elevFtUsed = envData ? envData.elevFt : 0;
+  const condReady = humidityUsed != null;
+  const envAdj = useMemo(
+    () => (condReady ? computeEnvAdjust({ elevFt: elevFtUsed, humidityPct: humidityUsed, roomTempF: rt }) : null),
+    [condReady, elevFtUsed, humidityUsed, rt]
+  );
+  const envOn = !!(condReady && envApplied && !special);
+  const hydrationAdj = round(clamp(hydration + (envOn ? envAdj.hydrationDelta : 0), 55, 100), 1);
+  const yeastEnvFactor = envOn ? envAdj.yeastFactor : 1;
+
+  async function runEnvFetch() {
+    setEnvLoading(true);
+    setEnvError("");
+    try {
+      setEnvData(await fetchKitchenEnv(zip, envDate));
+    } catch (e) {
+      setEnvData(null);
+      setEnvError(e.message || "Couldn't fetch conditions.");
+    } finally {
+      setEnvLoading(false);
+    }
+  }
+  // Switch the room-temp unit, converting the entered value so it stays the
+  // same physical temperature.
+  function switchTempUnit(u) {
+    if (u === tempUnit) return;
+    const n = Number(roomTempInput);
+    if (Number.isFinite(n) && roomTempInput.trim() !== "") {
+      const conv = u === "C" ? (n - 32) * 5 / 9 : n * 9 / 5 + 32;
+      setRoomTempInput(String(round(conv, 1)));
+    }
+    setTempUnit(u);
+  }
+
   const v = useMemo(() => {
     const sem = f * (semolinaPct / 100);
     const breadFlour = f - sem;
-    const water = f * (hydration / 100);
+    const water = f * (hydrationAdj / 100);
     const salt = f * (saltPct / 100);
     const yFactor = (YEAST_TYPES[yeastType] || YEAST_TYPES.instant).factor;
-    const yeastPctEff = sch.yeast * yFactor;
+    const yeastPctEff = sch.yeast * yFactor * yeastEnvFactor;
     const yeast = f * (yeastPctEff / 100);
     const sugar = f * (sch.sugar / 100);
     const panOil = f * (panOilPct / 100);
@@ -730,7 +935,7 @@ export default function FocacciaBuildSheet() {
     const doughWeight = f + water + salt + yeast + sugar + doughOil;
     const totalOil = panOil + doughOil + foldOil + brineOil;
     return { sem, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
-  }, [f, hydration, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType]);
+  }, [f, hydrationAdj, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
 
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
@@ -739,10 +944,16 @@ export default function FocacciaBuildSheet() {
     { title: "Dough", items: [
       { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) },
       ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
-      { k: express ? "Water — warm, 95–100°F" : "Water", g: round(v.water), pct: hydration },
+      { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
+        g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
+        note: envOn && envAdj.hydrationDelta !== 0
+          ? `${hydration}% base ${envAdj.hydrationDelta > 0 ? "+" : ""}${envAdj.hydrationDelta}% for your kitchen air`
+          : undefined },
       { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) },
-      { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express,
-        note: yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note },
+      { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express || (envOn && yeastEnvFactor < 1),
+        note: envOn && yeastEnvFactor < 1
+          ? `−${round((1 - yeastEnvFactor) * 100)}% for altitude — thin air over-proofs`
+          : yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note },
       ...(v.sugar > 0 ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" }] : []),
       { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1),
         note: doughOilPct === 0 ? "none — Ligurian-style, oil stays outside the dough" : "softens crumb · tenderises gluten · added after mixing" },
@@ -787,20 +998,30 @@ export default function FocacciaBuildSheet() {
   const STEPS = specialRecipe ? specialRecipe.steps : dialSteps;
   const profile = specialRecipe ? specialRecipe.profile : dialProfile;
 
-  const showWhy = verbosity >= 1;
+  // (verbosity/showWhy removed — steps always show the why on tap)
+
+  const mono = "'IBM Plex Mono', monospace";
+  const envFieldLabel = { display: "flex", flexDirection: "column", gap: 5, fontFamily: mono, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 };
+  const envFieldInput = { fontFamily: mono, fontSize: 15, padding: "9px 11px", borderRadius: 9, border: `1.5px solid ${C.line}`, background: C.paperDeep, color: C.ink, outline: "none" };
+  const envStat = (label, value) => (
+    <div key={label} style={{ flex: "1 1 120px", background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 10, padding: "9px 12px" }}>
+      <div style={{ fontFamily: mono, fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 600, color: C.olive }}>{value}</div>
+    </div>
+  );
 
   return (
     <ThemeCtx.Provider value={C}>
     <div style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
       <style>{FONTS}</style>
-      <div style={{ maxWidth: 720, margin: "0 auto", animation: "riseIn .5s ease" }}>
+      <div style={{ width: "100%", maxWidth: 880, margin: "0 auto", animation: "riseIn .5s ease" }}>
         {/* Header */}
         <div style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: 14, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 8 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 40, fontWeight: 900, letterSpacing: -1, lineHeight: 0.95 }}>Focaccia</h1>
           </div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, textAlign: "right", color: C.inkSoft, lineHeight: 1.5 }}>
-            <span style={{ color: C.rust, fontWeight: 600 }}>{specialDef ? specialDef.name : activeStyle === "custom" ? "Custom build" : STYLE_BY_ID[activeStyle].name}</span><br />
+            <span style={{ color: C.rust, fontWeight: 600 }}>{specialDef ? specialDef.name : !boundStyle ? "Freestyle" : STYLE_BY_ID[boundStyle].name}</span><br />
             {specialRecipe ? `fixed recipe · ${specialRecipe.clock}` : `${hydration}% hydration · ${sch.clock}`}
           </div>
         </div>
@@ -809,19 +1030,39 @@ export default function FocacciaBuildSheet() {
         <div style={{ marginBottom: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "2px 2px 10px" }}>
             <span>Style</span>
-            {activeStyle === "custom" && <span style={{ color: C.inkSoft, letterSpacing: 1 }}>custom · off-preset</span>}
+            <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{special ? "fixed recipe" : boundStyle ? "bound · adjusting within" : "freestyle"}</span>
           </div>
+          <button onClick={goFreestyle} style={{
+            display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer", width: "100%",
+            borderRadius: 11, padding: "11px 12px", marginBottom: 10, transition: "all .15s ease", fontFamily: "'Fraunces', serif",
+            border: `1.5px solid ${!special && !boundStyle ? C.olive : C.line}`, background: !special && !boundStyle ? C.olive : C.card, color: !special && !boundStyle ? C.onAccent : C.ink }}>
+            <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${!special && !boundStyle ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
+              {!special && !boundStyle && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
+            </span>
+            <span style={{ lineHeight: 1.25 }}>
+              <span style={{ display: "block", fontWeight: 600, fontSize: 15 }}>Freestyle</span>
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, opacity: 0.8 }}>no style — conforms to the nearest tradition{freestyleNearest ? ` · closest: ${freestyleNearest.name}` : ""}</span>
+            </span>
+          </button>
           {STYLE_CATS.map((cat) => (
             <div key={cat} style={{ marginBottom: 10 }}>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, margin: "0 2px 6px" }}>{cat}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
                 {STYLES.filter((s) => s.cat === cat).map((s) => {
-                  const on = !special && activeStyle === s.id;
+                  const on = !special && boundStyle === s.id;
+                  // Easter egg: the house "Flaky" tile, when selected, fills with
+                  // Goldmember (a dark wash keeps the label legible). That'sch a keeper.
+                  const goldOn = s.id === "flaky" && on;
                   return (
                     <button key={s.id} onClick={() => applyStyle(s.id)} style={{
                       display: "flex", gap: 9, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
                       borderRadius: 11, padding: "11px 12px", transition: "all .15s ease", fontFamily: "'Fraunces', serif",
-                      border: `1.5px solid ${on ? C.olive : C.line}`, background: on ? C.olive : C.card, color: on ? C.onAccent : C.ink }}>
+                      border: `1.5px solid ${on ? C.olive : C.line}`,
+                      background: goldOn
+                        ? `linear-gradient(rgba(0,0,0,0.32), rgba(0,0,0,0.42)), ${C.olive} url(${goldmemberSrc}) center / cover no-repeat`
+                        : on ? C.olive : C.card,
+                      color: on ? C.onAccent : C.ink,
+                      textShadow: goldOn ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
                       <span style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${on ? C.onAccent : C.line}`, flexShrink: 0, marginTop: 2, position: "relative" }}>
                         {on && <span style={{ position: "absolute", inset: 2.5, borderRadius: "50%", background: C.onAccent }} />}
                       </span>
@@ -861,12 +1102,12 @@ export default function FocacciaBuildSheet() {
             </div>
           </div>
 
-          <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${special ? C.rust : activeStyle === "custom" ? C.line : C.crust}`, paddingLeft: 12 }}>
+          <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.5, color: C.inkSoft, fontStyle: "italic", borderLeft: `3px solid ${special ? C.rust : !boundStyle ? C.line : C.crust}`, paddingLeft: 12 }}>
             {specialDef
               ? specialDef.blurb
-              : activeStyle === "custom"
-              ? "Custom — you've tuned the dials off any single tradition. Pick a style above to snap back to a preset."
-              : STYLE_BY_ID[activeStyle].blurb}
+              : !boundStyle
+              ? `Freestyle — no style selected, so the model adopts the nearest tradition's identity (schedule, semola, pan) and tunes the rest.${freestyleNearest ? ` Closest: ${freestyleNearest.name}.` : ""}`
+              : STYLE_BY_ID[boundStyle].blurb}
           </div>
         </div>
 
@@ -890,6 +1131,141 @@ export default function FocacciaBuildSheet() {
           </div>
         </div>
 
+        {/* Kitchen environment — altitude + humidity (by ZIP/day) + room temp */}
+        <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 14, padding: "16px 18px", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 16, fontWeight: 600 }}>Kitchen environment</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: C.inkSoft }}>altitude · humidity · room temp</span>
+          </div>
+          <div style={{ fontSize: 13, color: C.inkSoft, fontStyle: "italic", marginBottom: 13 }}>
+            Pull your elevation and the day's humidity from a US ZIP code (or type your own indoor humidity), set the room temperature in °F or °C, and the formula recalibrates — dough water, yeast, mixing-water temperature and the bake.
+          </div>
+
+          {/* Location → fetch */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <label style={{ ...envFieldLabel, flex: "2 1 130px" }}>
+              ZIP code
+              <input value={zip} inputMode="numeric" placeholder="e.g. 80401"
+                onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                onKeyDown={(e) => { if (e.key === "Enter") runEnvFetch(); }}
+                style={envFieldInput} />
+            </label>
+            <label style={{ ...envFieldLabel, flex: "2 1 150px" }}>
+              Date
+              <input type="date" value={envDate} onChange={(e) => setEnvDate(e.target.value)} style={envFieldInput} />
+            </label>
+            <button onClick={runEnvFetch} disabled={envLoading}
+              style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, padding: "10px 16px", borderRadius: 9, border: "none", cursor: envLoading ? "default" : "pointer", background: C.oliveDeep, color: C.onAccent, opacity: envLoading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+              {envLoading ? "Fetching…" : "Fetch conditions"}
+            </button>
+          </div>
+
+          {/* Manual conditions: room temperature (°F/°C) + humidity override */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
+            <label style={{ ...envFieldLabel, flex: "3 1 280px" }}>
+              Room temperature
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="number" value={roomTempInput} inputMode="decimal"
+                  onChange={(e) => setRoomTempInput(e.target.value)}
+                  style={{ ...envFieldInput, flex: 1, minWidth: 90 }} />
+                <div style={{ display: "flex", gap: 3, background: C.paperDeep, borderRadius: 8, padding: 3 }}>
+                  {["F", "C"].map((u) => {
+                    const on = tempUnit === u;
+                    return (
+                      <button key={u} type="button" onClick={() => switchTempUnit(u)}
+                        style={{ border: "none", borderRadius: 6, padding: "7px 11px", cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 600, background: on ? C.olive : "transparent", color: on ? C.onAccent : C.inkSoft, transition: "all .15s ease" }}>°{u}</button>
+                    );
+                  })}
+                </div>
+                <span style={{ fontFamily: mono, fontSize: 12, color: C.inkSoft, whiteSpace: "nowrap" }}>≈ {rtAltUnit}°{tempUnit === "F" ? "C" : "F"}</span>
+              </span>
+            </label>
+            <label style={{ ...envFieldLabel, flex: "2 1 160px" }}>
+              Humidity %
+              <input type="number" value={humidityManual} min={0} max={100} inputMode="decimal"
+                placeholder={envData ? `${envData.humidityPct} (fetched)` : "optional"}
+                onChange={(e) => setHumidityManual(e.target.value)} style={envFieldInput} />
+            </label>
+          </div>
+
+          <div style={{ marginTop: 9, fontSize: 12, color: C.inkSoft, fontStyle: "italic" }}>
+            Humidity uses the ZIP/day reading unless you enter your own — set it to your hygrometer value if a humidifier or HVAC makes your kitchen differ.{!envData ? " Add a ZIP and fetch for altitude effects." : ""}
+          </div>
+
+          {envError && (
+            <div style={{ marginTop: 11, fontSize: 13, color: C.rust, fontWeight: 600 }}>⚠ {envError}</div>
+          )}
+
+          {condReady && envAdj && (
+            <div style={{ marginTop: 14, background: C.brineBg, border: `1.5px solid ${C.rust}`, borderRadius: 12, padding: "13px 15px", animation: "riseIn .2s ease" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 11 }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600 }}>📍 {envData ? `${envData.place} · ${envData.date}` : "Your kitchen · manual conditions"}</span>
+                <button onClick={() => setEnvApplied((a) => !a)} disabled={!!special}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: envOn ? C.rust : "transparent", color: envOn ? C.onAccent : C.rust, border: `1.5px solid ${C.rust}`, borderRadius: 20, padding: "6px 13px", cursor: special ? "default" : "pointer", opacity: special ? 0.5 : 1, fontFamily: mono, fontSize: 12, fontWeight: 600 }}>
+                  {envOn ? "✓ applied to recipe" : envApplied && special ? "n/a for fixed recipe" : "apply to recipe"}
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {envStat("Elevation", envData ? `${envData.elevFt.toLocaleString()} ft` : "— add ZIP")}
+                {envStat(humidityIsManual ? "Humidity · yours" : "Humidity", `${humidityUsed}%`)}
+                {envStat("Room", `${round(rt)}°F · ${round((rt - 32) * 5 / 9)}°C`)}
+              </div>
+
+              <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 9 }}>
+                Scientific recalibration
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {[
+                  ...(envAdj.hydrationDelta !== 0 ? [{
+                    label: "Hydration",
+                    value: `${hydration}% → ${round(clamp(hydration + envAdj.hydrationDelta, 55, 100), 1)}%`,
+                    on: envOn,
+                    why: `${humidityUsed < ENV_BASE_RH ? "Dry air" : "Humid air"} (${humidityUsed}% RH${humidityIsManual ? ", your reading" : ""} vs ${ENV_BASE_RH}% baseline) shifts water ${envAdj.hydrationFromRH >= 0 ? "+" : ""}${round(envAdj.hydrationFromRH, 1)}%${envAdj.hydrationFromAlt > 0 ? `, altitude adds +${round(envAdj.hydrationFromAlt, 1)}% (drier, faster-evaporating air)` : ""}.`,
+                  }] : []),
+                  ...(envAdj.yeastFactor < 1 ? [{
+                    label: "Yeast",
+                    value: `×${envAdj.yeastFactor.toFixed(2)} (−${round((1 - envAdj.yeastFactor) * 100)}%)`,
+                    on: envOn,
+                    why: `At ${elevFtUsed.toLocaleString()} ft the lower air pressure lets fermentation gas expand more, so dough over-proofs — trim the yeast and watch the dough, not the clock.`,
+                  }] : []),
+                  {
+                    label: "Mixing-water temp",
+                    value: `${envAdj.waterTempF}°F`,
+                    on: true,
+                    why: `Desired-dough-temperature method: to hit ~${ENV_DDT_F}°F dough at a ${round(rt)}°F room (hand-mixed), start with water near this temperature.`,
+                  },
+                  ...(envAdj.bakeTempBumpF > 0 ? [{
+                    label: "Bake",
+                    value: `+${envAdj.bakeTempBumpF}°F, shorter`,
+                    on: true,
+                    why: "Standard high-altitude move: a hotter, shorter bake sets the crust before the fast-expanding crumb collapses.",
+                  }] : []),
+                  {
+                    label: "Ferment pace",
+                    value: envAdj.fermentFactor < 1 ? `~${round((1 - envAdj.fermentFactor) * 100)}% faster` : envAdj.fermentFactor > 1 ? `~${round((envAdj.fermentFactor - 1) * 100)}% longer` : "as scheduled",
+                    on: true,
+                    why: `Yeast activity roughly doubles per ~18°F (Q10≈2). Your ${round(rt)}°F room runs ${envAdj.fermentFactor < 1 ? "warmer than" : envAdj.fermentFactor > 1 ? "cooler than" : "right at"} the schedule's ${ENV_FERMENT_REF_F}°F assumption, so expect the bulk and proof to take ${envAdj.fermentFactor < 1 ? "less" : "more"} time.`,
+                  },
+                ].map((ln) => (
+                  <div key={ln.label} style={{ opacity: ln.on ? 1 : 0.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{ln.label}{!ln.on && <span style={{ fontFamily: mono, fontSize: 10.5, color: C.inkSoft, fontWeight: 400 }}> · toggle on to apply</span>}</span>
+                      <span style={{ fontFamily: mono, fontSize: 13.5, color: C.rust, fontWeight: 600, whiteSpace: "nowrap" }}>{ln.value}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.45, color: C.inkSoft, marginTop: 2 }}>{ln.why}</div>
+                  </div>
+                ))}
+              </div>
+              {special && (
+                <div style={{ marginTop: 11, fontSize: 12.5, color: C.inkSoft, fontStyle: "italic" }}>
+                  The water, bake and timing guidance still applies, but the hydration/yeast recalibration only folds into the dial-driven recipes — {specialDef.name} runs its own fixed formula.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Fixed-recipe banner — the dials don't apply here */}
         {special && (
           <div style={{ background: C.brineBg, border: `1.5px solid ${C.rust}`, borderRadius: 12, padding: "12px 15px", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -905,33 +1281,19 @@ export default function FocacciaBuildSheet() {
         {/* The dials (dial-driven styles only) */}
         {!special && <>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, margin: "4px 2px 10px" }}>
-          <span>The dials</span>
+          <span>Drive the qualities</span>
+          <span style={{ color: C.inkSoft, letterSpacing: 1 }}>the formula is solved from these</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <Dial label="Crumb — hydration" value={hydration} min={65} max={90} step={1}
-            onChange={setHydration} readout={`${hydration}% · ${round(v.water)}g`} lo="tight / bread-y" hi="open / custardy"
-            why="Water as a % of flour. Gluten forms from hydration plus kneading energy (Cauvain, Ch.2), and more water gives larger, more irregular holes and a moist, custardy crumb — at the cost of a slacker, wetter-to-handle dough. Below ~70% it bakes tighter and more sandwich-bread-like." />
-          <Dial label="Ferment & tang" value={schIdx} min={0} max={3} step={1}
-            onChange={setSchIdx} readout={`${sch.name} · ${sch.yeast}% yeast`} stops={["same-day", "night", "2-day", "3-day"]} accent
-            why={`The yeastiness/flavour axis. Long, cold fermentation builds organic acids and deep aroma while relaxing the gluten — so it needs less yeast because it works longer (Cauvain, Ch.2). Right now: ${sch.temp}, ${sch.clock} total, ${sch.tang}.`} />
-          <Dial label="Flakiness — lamination" value={folds} min={0} max={4} step={1}
-            onChange={setFolds} readout={folds === 0 ? "none" : `${folds} oiled fold${folds > 1 ? "s" : ""}`} stops={["0", "1", "2", "3", "4"]}
-            why="Letter-folds with oil drizzled between them lay down thin fat films that shred into flaky layers when baked — light lamination, not croissant layers. Zero folds is classic pillowy focaccia; more folds trade some height for a dramatic, tearing pull." />
-          <Dial label="Fried base — pan oil" value={panOilPct} min={6} max={12} step={1}
-            onChange={setPanOilPct} readout={`${panOilPct}% · ${round(v.panOil)}g`} lo="light fry" hi="deep shallow-fry" accent
-            why="Olive oil flooded into a dark metal pan shallow-fries the base into a crisp, blistered shell as it bakes. More oil = a deeper fry and a crunchier, more savoury bottom — push it too far and the very edges can turn greasy, so pair high oil with the longer bake." />
-          <Dial label="Dough oil — richness" value={doughOilPct} min={0} max={10} step={0.5}
-            onChange={setDoughOilPct} readout={doughOilPct === 0 ? "none" : `${round(doughOilPct, 1)}% · ${round(v.doughOil)}g`} lo="lean / Ligurian" hi="rich / tender"
-            why="Olive oil worked into the dough itself. Cauvain (Ch.2, Table 2.2) lists fat at 1–2% of flour as an optional improver that raises gas retention and crumb softness; the fat lubricates and shortens the gluten for a more tender, finer crumb. Focaccia genovese runs ~5%. Add it after the gluten has started forming so it doesn't blunt development." />
-          <Dial label="Salt" value={saltPct} min={1.6} max={2.8} step={0.1}
-            onChange={setSaltPct} readout={`${round(saltPct, 1)}% · ${round(v.salt, 1)}g`} lo="lean" hi="bold"
-            why="Salt seasons, but it also tightens the gluten network and slows the yeast — bakers even delay adding it to speed early fermentation (Cauvain, Ch.2). Higher salt = stronger structure and a slower rise; 2.2–2.5% is the usual focaccia window." />
-          <Dial label="Semolina swap" value={semolinaPct} min={0} max={15} step={1}
-            onChange={setSemolinaPct} readout={semolinaPct === 0 ? "none" : `${semolinaPct}% · ${round(v.sem)}g`} lo="all bread flour" hi="15% durum"
-            why="Swapping in durum semolina adds golden colour and a sandy, fracturing crust. It dilutes the gluten, though, so too much (beyond ~15%) dulls the rise and toughens the crumb." />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 10, marginBottom: 12 }}>
+          {QUALITY_AXES.map((a) => (
+            <Dial key={a.key} label={a.label} value={q[a.key]} min={0} max={100} step={1}
+              onChange={(val) => setQ((prev) => ({ ...prev, [a.key]: val }))}
+              readout={`${q[a.key]} / 100`} lo={a.lo} hi={a.hi}
+              accent={a.key === "tang" || a.key === "crust"} why={QUALITY_WHY[a.key]} />
+          ))}
         </div>
 
-        {/* Yeast form + two pans */}
+        {/* Yeast form — a baker's choice, not a quality the model solves */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 12 }}>
           <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "11px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -949,7 +1311,30 @@ export default function FocacciaBuildSheet() {
               {round(v.yeast, 2)}g · {round(v.yeastPctEff, 2)}% — {YEAST_TYPES[yeastType].note}
             </div>
           </div>
-          <Toggle on={twoPans} onClick={() => setTwoPans((s) => !s)} label="Split into 2 pans" sub="e.g. cherry-tomato + plain" />
+        </div>
+
+        {/* What the qualities tell you to use — the solved formula & method */}
+        <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 9, flexWrap: "wrap", gap: 6 }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Use this — solved from your qualities</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>{boundStyle ? `within ${STYLE_BY_ID[boundStyle].name}` : "freestyle"} · {Math.round(100 * Math.exp(-solved.residual / 500))}% match</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+            {[
+              ["Ferment", sch.name, sch.tang],
+              ["Hydration", `${hydration}%`, hydration >= 84 ? "open & custardy" : hydration >= 76 ? "airy & balanced" : "tight & bread-y"],
+              ["Lamination", folds === 0 ? "none" : `${folds} oiled fold${folds > 1 ? "s" : ""}`, folds === 0 ? "pillowy" : "flaky shred"],
+              ["Grain", semolinaPct > 0 ? `${semolinaPct}% durum` : "all bread flour", semolinaPct > 0 ? "sandy crust" : "smooth crumb"],
+              ["Oil", `${round(doughOilPct, 1)}% dough · ${panOilPct}% pan`, "tender vs. fried base"],
+              ["Bake", twoPans ? "two pans" : "one pan", `${round(saltPct, 1)}% salt`],
+            ].map(([k, val, sub]) => (
+              <div key={k} style={{ background: C.paperDeep, border: `1px solid ${C.line}`, borderRadius: 9, padding: "9px 11px" }}>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{k}</div>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: C.olive }}>{val}</div>
+                <div style={{ fontSize: 11, color: C.inkSoft, lineHeight: 1.3 }}>{sub}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Toppings & herbs */}
@@ -1059,20 +1444,7 @@ export default function FocacciaBuildSheet() {
         </div>
         </>}
 
-        {/* Display options: verbosity + dark mode */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px 11px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 15, fontWeight: 600 }}>Recipe detail</span>
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: C.olive, fontWeight: 600 }}>{VERBOSITY[verbosity]}</span>
-            </div>
-            <input type="range" min={0} max={2} step={1} value={verbosity} onChange={(e) => setVerbosity(Number(e.target.value))} style={{ width: "100%", accentColor: C.olive, margin: "9px 0 2px" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.inkSoft }}>
-              {VERBOSITY.map((lbl, i) => <span key={lbl} style={{ color: i === verbosity ? C.olive : C.inkSoft, fontWeight: i === verbosity ? 600 : 400, flex: 1, textAlign: "center" }}>{lbl.toLowerCase()}</span>)}
-            </div>
-          </div>
-          <Toggle on={dark} onClick={() => setDark((d) => !d)} label={dark ? "Dark mode" : "Light mode"} sub={dark ? "warm charcoal" : "warm paper"} />
-        </div>
+        {/* (verbosity + dark-mode toggle removed — theme inherits from the blog) */}
 
         {/* Live profile chips */}
         <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 22 }}>
@@ -1133,27 +1505,31 @@ export default function FocacciaBuildSheet() {
               </>}
         </div>
 
-        {/* Process */}
+        {/* Process — succinct bullet steps; tap any step for the why */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 12 }}>
-          <span>Process{showWhy ? " — tap for the why" : ""}</span>
+          <span>Process — tap any step for the why</span>
           <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{specialRecipe ? specialRecipe.clock : `${sch.clock}${express ? " + bake" : ""}`}</span>
         </div>
 
         {STEPS.map((s) => {
           const open = openStep === s.n;
           return (
-            <div key={s.n} style={{ border: `1.5px solid ${open && showWhy ? C.olive : C.line}`, borderRadius: 12, marginBottom: 9, overflow: "hidden", background: open && showWhy ? C.card : "transparent", transition: "border-color .18s ease" }}>
+            <div key={s.n} style={{ border: `1.5px solid ${open ? C.olive : C.line}`, borderRadius: 12, marginBottom: 9, overflow: "hidden", background: open ? C.card : "transparent", transition: "border-color .18s ease" }}>
               <button onClick={() => setOpenStep(open ? "" : s.n)} style={{ width: "100%", display: "flex", gap: 14, alignItems: "flex-start", textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "14px 16px", fontFamily: "'Fraunces', serif", color: C.ink }}>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, color: open && showWhy ? C.olive : C.crust, paddingTop: 3 }}>{s.n}</span>
+                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, fontWeight: 600, color: open ? C.olive : C.crust, paddingTop: 3 }}>{s.n}</span>
                 <span style={{ flex: 1 }}>
                   <span style={{ fontSize: 19, fontWeight: 600, display: "block" }}>{s.title}</span>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.inkSoft }}>{s.spec}</span>
+                  <span style={{ display: "block", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: C.inkSoft, marginTop: 5 }}>
+                    {s.spec.split(" · ").map((seg, i) => (
+                      <span key={i} style={{ display: "block", paddingLeft: 13, textIndent: -11, lineHeight: 1.5 }}>• {seg}</span>
+                    ))}
+                  </span>
                 </span>
-                {showWhy && <span style={{ fontSize: 20, color: C.olive, transform: open ? "rotate(45deg)" : "none", transition: "transform .2s ease", lineHeight: 1, paddingTop: 2 }}>+</span>}
+                <span style={{ fontSize: 20, color: C.olive, transform: open ? "rotate(45deg)" : "none", transition: "transform .2s ease", lineHeight: 1, paddingTop: 2 }}>+</span>
               </button>
-              {open && showWhy && (
+              {open && (
                 <div style={{ padding: "0 16px 16px 44px", fontSize: 15.5, lineHeight: 1.55, color: C.inkSoft, whiteSpace: "pre-line", animation: "riseIn .25s ease" }}>
-                  {s.why}{verbosity >= 2 && s.more ? `\n\n${s.more}` : ""}
+                  {s.why}{s.more ? `\n\n${s.more}` : ""}
                 </div>
               )}
             </div>

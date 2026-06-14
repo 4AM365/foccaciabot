@@ -1,19 +1,28 @@
 {
-  "name": "foccaciabot-app",
+  "name": "focaccia-widget",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Interactive focaccia dashboard (Vite + React harness around focaccia-build-sheet.jsx).",
+  "description": "Interactive focaccia calculator: a quality-driven inverse model (src/focaccia-model.js) + a React build sheet. Runs standalone via Vite, and is consumed by the 4AM365 blog as a widget dependency.",
+  "main": "focaccia-build-sheet.jsx",
+  "exports": {
+    ".": "./focaccia-build-sheet.jsx",
+    "./model": "./src/focaccia-model.js"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
   },
   "devDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11"
   }
