@@ -753,76 +753,58 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
   return { phases, spine, tracks, ordered };
 }
 
-// A horizontal Gantt of the prep: phases run left→right across the x-axis of
-// time; the dough spine is the top band; each topping sits under the moment its
-// prep happens, with its icon on the axis. Scrolls sideways on narrow screens.
+// A vertical timeline of the bake: phases run top→bottom, each with a wide step
+// block beside it — the dough's action, the ingredients + grams to add then, and
+// any topping prep due at that phase. Going vertical gives the ingredients room.
 // Purely presentational — state (ticking) lives in the ordered list below it.
 function TimeGraph({ phases, spine, tracks, phaseIng, C, accent }) {
-  const cols = `96px ${phases.map((p) => `minmax(74px, ${p.weight}fr)`).join(" ")}`;
-  const line = (i) => (i === 0 ? "none" : `1px solid ${C.line}`);
-
-  const chip = (t) => (
-    <div style={{ background: C.paperDeep, border: `1px solid ${C.line}`, borderLeft: `3px solid ${accent}`, borderRadius: 8, padding: "5px 7px", width: "100%" }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.25, color: C.ink }}>{t.icon} {t.plan.do}</div>
-      {t.plan.dur && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: accent, fontWeight: 600, marginTop: 2 }}>⏱ {t.plan.dur}</div>}
-      {t.plan.dep && <div style={{ fontSize: 10.5, fontStyle: "italic", color: C.inkSoft, lineHeight: 1.3, marginTop: 2 }}>↳ {t.plan.dep}</div>}
-    </div>
-  );
-
   return (
-    <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-      <div style={{ minWidth: 96 + phases.length * 92, display: "grid", gridTemplateColumns: cols, rowGap: 6, alignItems: "stretch" }}>
-        {/* x-axis: phase labels + clocks */}
-        <div />
-        {phases.map((p, i) => (
-          <div key={p.key} style={{ borderLeft: line(i), padding: "0 6px 4px" }}>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{p.label}</div>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: accent, fontWeight: 600 }}>{p.clock}</div>
-          </div>
-        ))}
-
-        {/* the dough's own timeline */}
-        <div style={{ display: "flex", alignItems: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.inkSoft }}>Dough</div>
-        {phases.map((p, i) => (
-          <div key={p.key} style={{ borderLeft: line(i), padding: "0 4px", display: "flex", alignItems: "center" }}>
-            {spine[p.key] && (
-              <div style={{ background: accent, color: C.onAccent, borderRadius: 7, padding: "6px 8px", fontSize: 11.5, fontWeight: 600, lineHeight: 1.2, width: "100%" }}>{spine[p.key]}</div>
-            )}
-          </div>
-        ))}
-
-        {/* what to add at each block — ingredients + grams under their phase */}
-        <div style={{ display: "flex", alignItems: "flex-start", paddingTop: 5, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.inkSoft }}>Add</div>
-        {phases.map((p, i) => (
-          <div key={p.key} style={{ borderLeft: line(i), padding: "5px 5px 0", display: "flex", alignItems: "flex-start" }}>
-            {phaseIng && phaseIng[p.key] && phaseIng[p.key].length > 0 && (
-              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 2 }}>
-                {phaseIng[p.key].map((it) => (
-                  <div key={it.k} style={{ display: "flex", justifyContent: "space-between", gap: 5, fontSize: 11, lineHeight: 1.25 }}>
-                    <span style={{ color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.k}</span>
-                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: accent, whiteSpace: "nowrap" }}>{it.g != null ? `${it.g}g` : "—"}</span>
-                  </div>
-                ))}
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {phases.map((p, i) => {
+        const ings = (phaseIng && phaseIng[p.key]) || [];
+        const phaseTracks = tracks.filter((t) => t.plan.phase === p.key);
+        const last = i === phases.length - 1;
+        const hasBody = spine[p.key] || ings.length || phaseTracks.length;
+        return (
+          <div key={p.key} style={{ display: "grid", gridTemplateColumns: "minmax(92px, 116px) 1fr", gap: 12, alignItems: "start" }}>
+            {/* left: the timeline block — dot on a connecting rail, phase label + clock */}
+            <div style={{ display: "flex", gap: 9, paddingBottom: last ? 2 : 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", alignSelf: "stretch" }}>
+                <div style={{ width: 13, height: 13, borderRadius: "50%", background: accent, flexShrink: 0, marginTop: 3 }} />
+                {!last && <div style={{ width: 2, flex: 1, minHeight: 12, background: C.line, marginTop: 2 }} />}
               </div>
-            )}
-          </div>
-        ))}
-
-        {/* one lane per topping — icon rides the axis at its prep time */}
-        {tracks.map((t) => (
-          <React.Fragment key={t.id}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 600, color: C.ink }}>
-              <span style={{ fontSize: 15 }}>{t.icon}</span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</span>
+              <div style={{ paddingTop: 1 }}>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase", color: C.ink, fontWeight: 700, lineHeight: 1.2 }}>{p.label}</div>
+                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: accent, fontWeight: 600 }}>{p.clock}</div>
+              </div>
             </div>
-            {phases.map((p, i) => (
-              <div key={p.key} style={{ borderLeft: line(i), padding: "0 4px", display: "flex", alignItems: "center" }}>
-                {t.plan.phase === p.key ? chip(t) : null}
-              </div>
-            ))}
-          </React.Fragment>
-        ))}
-      </div>
+            {/* right: the step block — action, ingredients (room to wrap), topping prep */}
+            <div style={{ paddingBottom: last ? 2 : 16 }}>
+              {hasBody && (
+                <div style={{ background: C.paperDeep, border: `1px solid ${C.line}`, borderLeft: `3px solid ${accent}`, borderRadius: 9, padding: "9px 12px" }}>
+                  {spine[p.key] && <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{spine[p.key]}</div>}
+                  {ings.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginTop: spine[p.key] ? 7 : 0 }}>
+                      {ings.map((it) => (
+                        <span key={it.k} style={{ fontSize: 12.5, color: C.ink, whiteSpace: "nowrap" }}>
+                          {it.k} <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: accent }}>{it.g != null ? `${it.g}g` : "to taste"}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {phaseTracks.map((t) => (
+                    <div key={t.id} style={{ fontSize: 12, color: C.inkSoft, lineHeight: 1.4, marginTop: 6 }}>
+                      <span style={{ fontWeight: 600, color: C.ink }}>{t.icon} {t.plan.do}</span>
+                      {t.plan.dur && <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: accent, fontWeight: 600 }}> · ⏱ {t.plan.dur}</span>}
+                      {t.plan.dep && <span style={{ fontStyle: "italic" }}> ↳ {t.plan.dep}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1448,10 +1430,10 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
         <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
             <span style={{ fontSize: 15, fontWeight: 600 }}>Prep timeline — what to do when</span>
-            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>left → right = first → last</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>top → bottom = first → last</span>
           </div>
           <div style={{ fontSize: 12.5, color: C.inkSoft, fontStyle: "italic", marginBottom: 11 }}>
-            The top band is the dough's own clock; each topping sits under the moment its prep happens. <span style={{ fontStyle: "normal" }}>⏱</span> marks a step that takes time — the long ferment is your window to roast, toast and infuse. <span style={{ fontStyle: "normal" }}>↳</span> is what it has to finish (cool, dry…) before it can go on.
+            Each block is a phase of the bake; the card beside it is what the dough's doing, what to add then (with grams), and any topping prep due. <span style={{ fontStyle: "normal" }}>⏱</span> marks a step that takes time — the long ferment is your window to roast, toast and infuse. <span style={{ fontStyle: "normal" }}>↳</span> is what it has to finish (cool, dry…) before it can go on.
           </div>
 
           <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} phaseIng={phaseIng} C={C} accent={C.olive} />
