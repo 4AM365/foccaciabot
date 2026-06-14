@@ -44,17 +44,18 @@ The blog bundles it with esbuild, aliasing React → `preact/compat` at its own 
 step, so the component imports plain `react` here and stays portable across both
 build systems.
 
-To ship a change to the live widget:
+To ship a change to the live widget, run the integration pipeline from this repo.
+It commits + pushes here, then in the blog pulls the new commit, rebuilds the widget
+bundle, syncs the model doc, and commits + pushes (which auto-deploys):
 
 ```bash
-# here (foccaciabot)
-git commit -am "…" && git push
-
-# then in the blog repo (ventures/4AM365.github.io)
-npm update focaccia-widget     # pull the new commit
-npm run build:widgets          # rebundle quartz/static/widgets/focaccia.js
-git commit -am "…" && git push # push auto-deploys
+npm run publish:blog -- "your change description"
+# equivalently: node scripts/publish.mjs "your change description"
 ```
+
+`docs/focaccia-model.md` is the **canonical** model-equations explainer; the pipeline
+publishes a copy to the blog at `/kitchen/focaccia-model`. Keep this repo all-inclusive
+— the model code, the calculator, and the model docs all live here.
 
 ## The reference corpus
 
