@@ -17,6 +17,32 @@ const FONTS = `
 @keyframes riseIn { from { opacity:0; transform: translateY(10px);} to {opacity:1; transform:none;} }
 `;
 
+// GeoCities skin stylesheet — injected only when the retro skin is on. Forced
+// with !important so it overrides the hardcoded inline fonts/borders without
+// rewriting every styled element. `.geo-dark`/`.geo-light` pick the tiled
+// background to match the mode toggle.
+const GEO_CSS = `
+@keyframes geoBlink { 50% { opacity: 0; } }
+@keyframes geoRainbow { 0%{color:#ff0040} 20%{color:#ff8c00} 40%{color:#ffe000} 60%{color:#00c853} 80%{color:#2962ff} 100%{color:#aa00ff} }
+.geocities, .geocities * { font-family: "Comic Sans MS","Comic Sans","Chalkboard SE",cursive !important; }
+.geocities .geo-counter, .geocities .geo-counter * { font-family: "Courier New", monospace !important; }
+.geocities button { border-style: outset !important; }
+.geocities { background-repeat: repeat !important; }
+.geocities.geo-dark { background-image:
+  radial-gradient(1.5px 1.5px at 20px 24px,#ffffff,transparent),
+  radial-gradient(1px 1px at 64px 52px,#aaeeff,transparent),
+  radial-gradient(1.5px 1.5px at 120px 88px,#ffffff,transparent),
+  radial-gradient(1px 1px at 150px 30px,#ffd0d0,transparent) !important;
+  background-size: 180px 130px !important; }
+.geocities.geo-light { background-image:
+  radial-gradient(3px 3px at 22px 24px,rgba(255,0,255,0.20),transparent),
+  radial-gradient(3px 3px at 92px 70px,rgba(0,0,238,0.16),transparent),
+  radial-gradient(3px 3px at 150px 34px,rgba(255,140,0,0.18),transparent) !important;
+  background-size: 175px 120px !important; }
+.geo-blink { animation: geoBlink 1.1s steps(1) infinite; }
+.geo-rainbow { animation: geoRainbow 5s linear infinite; font-weight: 900; }
+`;
+
 // ---- Theming ---------------------------------------------------------------
 // Same keys in both palettes. `onAccent` is light in BOTH themes — it's the
 // text/icon colour placed on olive/oliveDeep/rust accent surfaces.
@@ -832,6 +858,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const [envApplied, setEnvApplied] = useState(true); // fold the recalibration into the recipe
 
   // Inherit the page's vibe + brightness → palette (standalone defaults to jdm).
+  // `geocities` also drives the retro className + GEO_CSS injection below.
+  const geocities = vibe === "geocities";
   const C = vibe === "geocities" ? (dark ? THEMES.geoDark : THEMES.geoLight)
           : vibe === "modern"    ? (dark ? THEMES.dark : THEMES.light)
           : (dark ? THEMES.jdmDark : THEMES.jdmLight);
@@ -1012,8 +1040,9 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
 
   return (
     <ThemeCtx.Provider value={C}>
-    <div style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
+    <div className={geocities ? `geocities ${dark ? "geo-dark" : "geo-light"}` : undefined} style={{ background: C.paper, minHeight: "100vh", padding: "28px 16px 60px", fontFamily: "'Fraunces', serif", color: C.ink, colorScheme: dark ? "dark" : "light", backgroundImage: C.glow, transition: "background .25s ease, color .25s ease" }}>
       <style>{FONTS}</style>
+      {geocities && <style>{GEO_CSS}</style>}
       <div style={{ width: "100%", maxWidth: 880, margin: "0 auto", animation: "riseIn .5s ease" }}>
         {/* Header */}
         <div style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: 14, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 8 }}>
