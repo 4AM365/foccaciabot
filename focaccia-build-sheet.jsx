@@ -975,15 +975,15 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
 
-  // Ingredients grouped by the physical step that uses them — this recipe's
-  // actual autolyse / fermentolyse method, not "by what they end up in". Shared
-  // rows, assembled into method-ordered steps. (Special recipes keep their own
-  // hand-authored groups; `groups` selects between them below.)
+  // Ingredients bucketed by their TIMELINE BLOCK — what to pull out and add at each
+  // phase of the bake's clock, mirroring the prep timeline above, so this reads as
+  // mise-en-place ("take out at this point") rather than a step-by-step recipe.
+  // (Special recipes keep their own hand-authored groups; `groups` selects below.)
   const compact = (arr) => arr.filter(Boolean);
   const rFlour = { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct - (pinsaBlendPct || 0), 1) };
   const rSem = semolinaPct > 0 ? { k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true } : null;
   const rBlend = v.blend > 0 ? { k: "Rice + soy flour blend", g: round(v.blend), pct: round(pinsaBlendPct || 0, 1), accent: true, note: "the pinsa blend — light, crisp, digestible" } : null;
-  const rPotato = v.potato > 0 ? { k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled ahead — tenderises the crumb (barese tradition)" } : null;
+  const rPotato = v.potato > 0 ? { k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled ahead" } : null;
   const rWater = { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
     g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
     note: envOn && envAdj.hydrationDelta !== 0 ? `${hydration}% base ${envAdj.hydrationDelta > 0 ? "+" : ""}${envAdj.hydrationDelta}% for your kitchen air` : undefined };
@@ -991,38 +991,27 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     note: envOn && yeastEnvFactor < 1 ? `−${round((1 - yeastEnvFactor) * 100)}% for altitude — thin air over-proofs`
       : yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note };
   const rSugar = v.sugar > 0 ? { k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" } : null;
-  const rSalt = { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1), note: "held back so it doesn't tighten the gluten early" };
-  const rDoughOil = doughOilPct > 0 ? { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1), note: "drizzled in once the dough is cohesive · softens the crumb" } : null;
+  const rSalt = { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) };
+  const rDoughOil = doughOilPct > 0 ? { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1), note: "softens the crumb" } : null;
 
   const dialGroups = compact([
-    express
-      ? { title: "01 · Fermentolyse — one bowl", caption: "everything but the salt; rest 20 min so the flour hydrates and the yeast wakes",
-          items: compact([rFlour, rSem, rBlend, rPotato, rWater, rYeast, rSugar]) }
-      : { title: "01 · Autolyse — flour & water", caption: "mix to a shaggy mass, cover, rest 30–45 min — no yeast or salt yet",
-          items: compact([rFlour, rSem, rBlend, rPotato, rWater]) },
-    express
-      ? { title: "02 · Salt, then develop", caption: "add the salt and mix to a cohesive, glossy dough",
-          items: compact([rSalt, rDoughOil]) }
-      : { title: "02 · Yeast → salt → develop", caption: "work in the yeast, then the salt; mix to a cohesive dough",
-          items: compact([rYeast, rSugar, rSalt, rDoughOil]) },
-    v.foldOil > 0 ? { title: "Laminate — oiled folds", caption: `drizzled across ${folds} letter-fold${folds > 1 ? "s" : ""} as you stretch & fold`,
-      items: [{ k: "Olive oil — folds", g: round(v.foldOil), pct: round(v.foldOilPct, 1) }] } : null,
-    { title: "Pan it", caption: "all of it floods the dark pan and fries the base",
-      items: [{ k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct }] },
-    { title: "Dimple + salamoia — a separate bowl", brine: true, caption: "whisk together, spoon into the dimples right before baking",
-      items: [
-        { k: "Water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
-        { k: "Olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
-        { k: "Fine salt — dissolved in", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true, note: "whisk in until it disappears" },
-      ] },
-    { title: "Finish — at dimpling", caption: "pressed in / scattered over the top",
+    { title: "Mix", clock: "~25 min", caption: express ? "fermentolyse → develop" : "autolyse → develop",
+      items: compact([rFlour, rSem, rBlend, rPotato, rWater, rYeast, rSugar, rSalt, rDoughOil]) },
+    v.foldOil > 0 ? { title: "Laminate", clock: "~20 min",
+      items: [{ k: "Olive oil — folds", g: round(v.foldOil), pct: round(v.foldOilPct, 1), note: `across ${folds} letter-fold${folds > 1 ? "s" : ""}` }] } : null,
+    { title: "Pan", clock: "20–30 min",
+      items: [{ k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct, note: "floods the dark pan" }] },
+    { title: "Dimple + top", clock: "~10 min", brine: true, caption: "salamoia (whisk in a separate bowl) + the finish, into the dimples",
       items: compact([
+        { k: "Brine — water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
+        { k: "Brine — olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
+        { k: "Brine — fine salt", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true },
         ...selectedToppings.map((t) => (
           t.id === "tomato"
             ? { k: `${t.icon} ${t.label}`, g: round(tomatoLoad), pct: tomatoPct, accent: true, note: `${TOMATO_MODES[tomatoMode].toLowerCase()} · ≈${round(tomatoWater)}g water into the crumb` }
             : { k: `${t.icon} ${t.label}`, g: null, pct: null, note: t.short }
         )),
-        { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
+        { k: "Flaky salt", g: null, pct: null, note: "over the top" },
       ]) },
   ]);
 
@@ -1514,8 +1503,9 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
           {groups.map((grp, gi) => (
             <div key={grp.title}>
               <div style={{ padding: "11px 18px 9px", background: grp.brine ? C.brineBg : C.paperDeep, borderTop: gi === 0 ? "none" : `1.5px solid ${C.line}` }}>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, letterSpacing: 1.5, textTransform: "uppercase", color: grp.brine ? C.rust : C.inkSoft, fontWeight: 600 }}>
-                  ▸ {grp.title}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, letterSpacing: 1.5, textTransform: "uppercase", color: grp.brine ? C.rust : C.inkSoft, fontWeight: 600 }}>
+                  <span>▸ {grp.title}</span>
+                  {grp.clock && <span style={{ color: C.olive, letterSpacing: 0.5 }}>{grp.clock}</span>}
                 </div>
                 {grp.caption && <div style={{ fontSize: 12.5, color: C.inkSoft, marginTop: 2, fontStyle: "italic" }}>{grp.caption}</div>}
               </div>
