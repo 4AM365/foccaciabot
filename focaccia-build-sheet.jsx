@@ -145,8 +145,8 @@ const STYLES = [
     blurb: "Long, cold-fermented and very wet — a tall, wildly open, custardy crumb with a crisp, blistered top. Lean and restrained; the ferment does the flavour.",
     set: { hydration: 85, schIdx: 3, folds: 0, panOilPct: 7, doughOilPct: 3, saltPct: 2.4, semolinaPct: 5, twoPans: false } },
   { id: "barese", cat: "Classic Italian", name: "Pugliese · Barese", tag: "semola · tomato",
-    blurb: "Durum-semolina dough (golden, sandy crust), high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf.",
-    set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 4, saltPct: 2.2, semolinaPct: 15, twoPans: true } },
+    blurb: "Durum-semolina dough enriched with boiled potato for a soft, moist crumb; high hydration, classically studded with cherry tomatoes, olives and oregano. A southern, rustic loaf.",
+    set: { hydration: 80, schIdx: 1, folds: 0, panOilPct: 9, doughOilPct: 4, saltPct: 2.2, semolinaPct: 15, twoPans: true, potatoPct: 25 } },
 
   // ---- Regional & obscure ----
   { id: "sardenaira", cat: "Regional & obscure", name: "Sardenaira", tag: "Sanremo · anchovy",
@@ -822,7 +822,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     ? solveWithin(q, identityOf(STYLE_BY_ID[boundStyle].set), {})
     : solveConforming(q, STYLES, {}), [q, boundStyle]);
   const recipe = solved.recipe;
-  const { hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans } = recipe;
+  const { hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans, potatoPct } = recipe;
   const [yeastType, setYeastType] = useState("instant");
   const [toppingSel, setToppingSel] = useState({ rosemary: true });
   const [tomatoMode, setTomatoMode] = useState("raw"); // raw | roast
@@ -946,6 +946,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
 
   const v = useMemo(() => {
     const sem = f * (semolinaPct / 100);
+    const potato = f * ((potatoPct || 0) / 100);
     const breadFlour = f - sem;
     const water = f * (hydrationAdj / 100);
     const salt = f * (saltPct / 100);
@@ -960,10 +961,10 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     const brineWater = f * (BRINE_WATER / 100);
     const brineOil = f * (BRINE_OIL / 100);
     const brineSalt = f * (BRINE_SALT / 100);
-    const doughWeight = f + water + salt + yeast + sugar + doughOil;
+    const doughWeight = f + water + salt + yeast + sugar + doughOil + potato;
     const totalOil = panOil + doughOil + foldOil + brineOil;
-    return { sem, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
-  }, [f, hydrationAdj, saltPct, semolinaPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
+    return { sem, potato, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
+  }, [f, hydrationAdj, saltPct, semolinaPct, potatoPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
 
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
@@ -972,6 +973,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     { title: "Dough", items: [
       { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) },
       ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
+      ...(v.potato > 0 ? [{ k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled — tenderises the crumb (barese tradition)" }] : []),
       { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
         g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
         note: envOn && envAdj.hydrationDelta !== 0

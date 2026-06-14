@@ -40,6 +40,7 @@ export function state(r) {
   const PO = r.panOilPct / 100;      // pan oil — fries the base
   const DO = r.doughOilPct / 100;    // oil worked into the dough
   const SEM = r.semolinaPct / 100;   // durum semola share
+  const POT = (r.potatoPct || 0) / 100; // boiled, riced potato worked into the dough
   const folds = r.folds;             // lamination letter-folds (0–4)
   const sch = r.schIdx;              // ferment schedule 0=same-day … 3=3-day cold
 
@@ -48,9 +49,10 @@ export function state(r) {
   const slack = clamp(H - 0.60, 0, 0.40);
 
   // Gluten network: lamination folds and a long ferment develop it; oil shortens
-  // it; durum semola's gluten is weaker/shorter. [gluten_development_folds],
+  // it; durum semola's gluten is weaker/shorter; boiled potato starch tenderises
+  // it further (the soft, moist barese/pugliese crumb). [gluten_development_folds],
   // [fat_shortens_gluten], [flour_gluten]
-  const gluten = clamp((0.55 + 0.15 * folds) * (1 + 0.10 * sch) * (1 - 0.6 * DO) * (1 - 0.4 * SEM), 0, 2);
+  const gluten = clamp((0.55 + 0.15 * folds) * (1 + 0.10 * sch) * (1 - 0.6 * DO) * (1 - 0.4 * SEM) * (1 - 0.5 * POT), 0, 2);
 
   // Fermentation: a longer/colder schedule builds more gas and more acidity
   // (tang), even though the yeast dose drops. [fermentation_gas_tang]
@@ -65,7 +67,7 @@ export function state(r) {
   const blister = sat((H - 0.76) / 0.14);
   const friedBase = PO;
 
-  return { H, S, PO, DO, SEM, folds, sch, slack, gluten, gas, tangState, ovenSpring, blister, friedBase };
+  return { H, S, PO, DO, SEM, POT, folds, sch, slack, gluten, gas, tangState, ovenSpring, blister, friedBase };
 }
 
 // ============================================================================
@@ -127,7 +129,7 @@ const PRIOR = Object.fromEntries(CONT.map((c) => [c.key, c.prior]));
 //   semolinaPct  durum-semola vs plain wheat
 //   twoPans      the two-pan / deep-fry bake
 // LEVERS — the continuous dials tuned within an identity.
-export const IDENTITY_KEYS = ["schIdx", "semolinaPct", "twoPans"];
+export const IDENTITY_KEYS = ["schIdx", "semolinaPct", "twoPans", "potatoPct"];
 export const LEVER_KEYS = CONT.map((c) => c.key);
 
 const DISCRETE = {
