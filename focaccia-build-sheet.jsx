@@ -969,42 +969,55 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
 
-  const dialGroups = [
-    { title: "Dough", items: [
-      { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) },
-      ...(semolinaPct > 0 ? [{ k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true }] : []),
-      ...(v.potato > 0 ? [{ k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled — tenderises the crumb (barese tradition)" }] : []),
-      { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
-        g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
-        note: envOn && envAdj.hydrationDelta !== 0
-          ? `${hydration}% base ${envAdj.hydrationDelta > 0 ? "+" : ""}${envAdj.hydrationDelta}% for your kitchen air`
-          : undefined },
-      { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) },
-      { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express || (envOn && yeastEnvFactor < 1),
-        note: envOn && yeastEnvFactor < 1
-          ? `−${round((1 - yeastEnvFactor) * 100)}% for altitude — thin air over-proofs`
-          : yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note },
-      ...(v.sugar > 0 ? [{ k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" }] : []),
-      { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1),
-        note: doughOilPct === 0 ? "none — Ligurian-style, oil stays outside the dough" : "softens crumb · tenderises gluten · added after mixing" },
-    ] },
-    { title: "Pan & folds", caption: "the oil that fries the base + laminates the layers", items: [
-      { k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct, note: "floods the dark pan" },
-      ...(v.foldOil > 0 ? [{ k: "Olive oil — folds", g: round(v.foldOil), pct: round(v.foldOilPct, 1), note: `drizzled across ${folds} letter-fold${folds > 1 ? "s" : ""}` }]
-        : [{ k: "Olive oil — folds", g: null, pct: null, note: "no lamination at this setting" }]),
-    ] },
-    { title: "Brine — salamoia", caption: "whisk together, spoon into the dimples right before baking", brine: true, items: [
-      { k: "Water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
-      { k: "Olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
-      { k: "Fine salt — dissolved in", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true, note: "whisk in until it disappears" },
-      { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
-    ] },
-    ...(selectedToppings.length ? [{ title: "Toppings & herbs", caption: "to taste · added at dimpling", items: selectedToppings.map((t) => (
-      t.id === "tomato"
-        ? { k: `${t.icon} ${t.label}`, g: round(tomatoLoad), pct: tomatoPct, accent: true, note: `${TOMATO_MODES[tomatoMode].toLowerCase()} · ≈${round(tomatoWater)}g water into the crumb` }
-        : { k: `${t.icon} ${t.label}`, g: null, pct: null, note: t.short }
-    )) }] : []),
-  ];
+  // Ingredients grouped by the physical step that uses them — this recipe's
+  // actual autolyse / fermentolyse method, not "by what they end up in". Shared
+  // rows, assembled into method-ordered steps. (Special recipes keep their own
+  // hand-authored groups; `groups` selects between them below.)
+  const compact = (arr) => arr.filter(Boolean);
+  const rFlour = { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct, 1) };
+  const rSem = semolinaPct > 0 ? { k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true } : null;
+  const rPotato = v.potato > 0 ? { k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled ahead — tenderises the crumb (barese tradition)" } : null;
+  const rWater = { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
+    g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
+    note: envOn && envAdj.hydrationDelta !== 0 ? `${hydration}% base ${envAdj.hydrationDelta > 0 ? "+" : ""}${envAdj.hydrationDelta}% for your kitchen air` : undefined };
+  const rYeast = { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express || (envOn && yeastEnvFactor < 1),
+    note: envOn && yeastEnvFactor < 1 ? `−${round((1 - yeastEnvFactor) * 100)}% for altitude — thin air over-proofs`
+      : yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note };
+  const rSugar = v.sugar > 0 ? { k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" } : null;
+  const rSalt = { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1), note: "held back so it doesn't tighten the gluten early" };
+  const rDoughOil = doughOilPct > 0 ? { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1), note: "drizzled in once the dough is cohesive · softens the crumb" } : null;
+
+  const dialGroups = compact([
+    express
+      ? { title: "01 · Fermentolyse — one bowl", caption: "everything but the salt; rest 20 min so the flour hydrates and the yeast wakes",
+          items: compact([rFlour, rSem, rPotato, rWater, rYeast, rSugar]) }
+      : { title: "01 · Autolyse — flour & water", caption: "mix to a shaggy mass, cover, rest 30–45 min — no yeast or salt yet",
+          items: compact([rFlour, rSem, rPotato, rWater]) },
+    express
+      ? { title: "02 · Salt, then develop", caption: "add the salt and mix to a cohesive, glossy dough",
+          items: compact([rSalt, rDoughOil]) }
+      : { title: "02 · Yeast → salt → develop", caption: "work in the yeast, then the salt; mix to a cohesive dough",
+          items: compact([rYeast, rSugar, rSalt, rDoughOil]) },
+    v.foldOil > 0 ? { title: "Laminate — oiled folds", caption: `drizzled across ${folds} letter-fold${folds > 1 ? "s" : ""} as you stretch & fold`,
+      items: [{ k: "Olive oil — folds", g: round(v.foldOil), pct: round(v.foldOilPct, 1) }] } : null,
+    { title: "Pan it", caption: "all of it floods the dark pan and fries the base",
+      items: [{ k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct }] },
+    { title: "Dimple + salamoia — a separate bowl", brine: true, caption: "whisk together, spoon into the dimples right before baking",
+      items: [
+        { k: "Water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
+        { k: "Olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
+        { k: "Fine salt — dissolved in", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true, note: "whisk in until it disappears" },
+      ] },
+    { title: "Finish — at dimpling", caption: "pressed in / scattered over the top",
+      items: compact([
+        ...selectedToppings.map((t) => (
+          t.id === "tomato"
+            ? { k: `${t.icon} ${t.label}`, g: round(tomatoLoad), pct: tomatoPct, accent: true, note: `${TOMATO_MODES[tomatoMode].toLowerCase()} · ≈${round(tomatoWater)}g water into the crumb` }
+            : { k: `${t.icon} ${t.label}`, g: null, pct: null, note: t.short }
+        )),
+        { k: "Flaky salt", g: null, pct: null, note: "to finish, over the top" },
+      ]) },
+  ]);
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
   const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
