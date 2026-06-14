@@ -757,7 +757,7 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
 // time; the dough spine is the top band; each topping sits under the moment its
 // prep happens, with its icon on the axis. Scrolls sideways on narrow screens.
 // Purely presentational — state (ticking) lives in the ordered list below it.
-function TimeGraph({ phases, spine, tracks, C, accent }) {
+function TimeGraph({ phases, spine, tracks, phaseIng, C, accent }) {
   const cols = `96px ${phases.map((p) => `minmax(74px, ${p.weight}fr)`).join(" ")}`;
   const line = (i) => (i === 0 ? "none" : `1px solid ${C.line}`);
 
@@ -787,6 +787,23 @@ function TimeGraph({ phases, spine, tracks, C, accent }) {
           <div key={p.key} style={{ borderLeft: line(i), padding: "0 4px", display: "flex", alignItems: "center" }}>
             {spine[p.key] && (
               <div style={{ background: accent, color: C.onAccent, borderRadius: 7, padding: "6px 8px", fontSize: 11.5, fontWeight: 600, lineHeight: 1.2, width: "100%" }}>{spine[p.key]}</div>
+            )}
+          </div>
+        ))}
+
+        {/* what to add at each block — ingredients + grams under their phase */}
+        <div style={{ display: "flex", alignItems: "flex-start", paddingTop: 5, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.inkSoft }}>Add</div>
+        {phases.map((p, i) => (
+          <div key={p.key} style={{ borderLeft: line(i), padding: "5px 5px 0", display: "flex", alignItems: "flex-start" }}>
+            {phaseIng && phaseIng[p.key] && phaseIng[p.key].length > 0 && (
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 2 }}>
+                {phaseIng[p.key].map((it) => (
+                  <div key={it.k} style={{ display: "flex", justifyContent: "space-between", gap: 5, fontSize: 11, lineHeight: 1.25 }}>
+                    <span style={{ color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.k}</span>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: accent, whiteSpace: "nowrap" }}>{it.g != null ? `${it.g}g` : "—"}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         ))}
@@ -975,45 +992,32 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
 
-  // Ingredients bucketed by their TIMELINE BLOCK — what to pull out and add at each
-  // phase of the bake's clock, mirroring the prep timeline above, so this reads as
-  // mise-en-place ("take out at this point") rather than a step-by-step recipe.
-  // (Special recipes keep their own hand-authored groups; `groups` selects below.)
-  const compact = (arr) => arr.filter(Boolean);
-  const rFlour = { k: "Bread flour", g: round(v.breadFlour), pct: round(100 - semolinaPct - (pinsaBlendPct || 0), 1) };
-  const rSem = semolinaPct > 0 ? { k: "Semolina", g: round(v.sem), pct: round(semolinaPct, 1), accent: true } : null;
-  const rBlend = v.blend > 0 ? { k: "Rice + soy flour blend", g: round(v.blend), pct: round(pinsaBlendPct || 0, 1), accent: true, note: "the pinsa blend — light, crisp, digestible" } : null;
-  const rPotato = v.potato > 0 ? { k: "Boiled potato — riced", g: round(v.potato), pct: round(potatoPct || 0, 1), accent: true, note: "boiled, riced & cooled ahead" } : null;
-  const rWater = { k: envOn ? `Water — ${envAdj.waterTempF}°F (for ${ENV_DDT_F}°F dough)` : (express ? "Water — warm, 95–100°F" : "Water"),
-    g: round(v.water), pct: round(hydrationAdj, 1), accent: envOn && envAdj.hydrationDelta !== 0,
-    note: envOn && envAdj.hydrationDelta !== 0 ? `${hydration}% base ${envAdj.hydrationDelta > 0 ? "+" : ""}${envAdj.hydrationDelta}% for your kitchen air` : undefined };
-  const rYeast = { k: YEAST_TYPES[yeastType].label, g: round(v.yeast, 2), pct: round(v.yeastPctEff, 2), accent: express || (envOn && yeastEnvFactor < 1),
-    note: envOn && yeastEnvFactor < 1 ? `−${round((1 - yeastEnvFactor) * 100)}% for altitude — thin air over-proofs`
-      : yeastType === "instant" ? (express ? "bumped for the short clock" : "low — the ferment does the work") : YEAST_TYPES[yeastType].note };
-  const rSugar = v.sugar > 0 ? { k: "Sugar or honey", g: round(v.sugar, 1), pct: sch.sugar, note: "jump-starts the yeast" } : null;
-  const rSalt = { k: "Salt", g: round(v.salt, 1), pct: round(saltPct, 1) };
-  const rDoughOil = doughOilPct > 0 ? { k: "Olive oil — in the dough", g: round(v.doughOil), pct: round(doughOilPct, 1), note: "softens the crumb" } : null;
-
-  const dialGroups = compact([
-    { title: "Mix", clock: "~25 min", caption: express ? "fermentolyse → develop" : "autolyse → develop",
-      items: compact([rFlour, rSem, rBlend, rPotato, rWater, rYeast, rSugar, rSalt, rDoughOil]) },
-    v.foldOil > 0 ? { title: "Laminate", clock: "~20 min",
-      items: [{ k: "Olive oil — folds", g: round(v.foldOil), pct: round(v.foldOilPct, 1), note: `across ${folds} letter-fold${folds > 1 ? "s" : ""}` }] } : null,
-    { title: "Pan", clock: "20–30 min",
-      items: [{ k: "Olive oil — pan", g: round(v.panOil), pct: panOilPct, note: "floods the dark pan" }] },
-    { title: "Dimple + top", clock: "~10 min", brine: true, caption: "salamoia (whisk in a separate bowl) + the finish, into the dimples",
-      items: compact([
-        { k: "Brine — water", g: round(v.brineWater), pct: BRINE_WATER, accent: true },
-        { k: "Brine — olive oil", g: round(v.brineOil), pct: BRINE_OIL, accent: true },
-        { k: "Brine — fine salt", g: round(v.brineSalt, 1), pct: BRINE_SALT, accent: true },
-        ...selectedToppings.map((t) => (
-          t.id === "tomato"
-            ? { k: `${t.icon} ${t.label}`, g: round(tomatoLoad), pct: tomatoPct, accent: true, note: `${TOMATO_MODES[tomatoMode].toLowerCase()} · ≈${round(tomatoWater)}g water into the crumb` }
-            : { k: `${t.icon} ${t.label}`, g: null, pct: null, note: t.short }
-        )),
-        { k: "Flaky salt", g: null, pct: null, note: "over the top" },
-      ]) },
-  ]);
+  // Ingredients to add at each TIMELINE BLOCK — rendered under the matching gantt
+  // column (the "Add" lane in TimeGraph) so the timeline doubles as "what to pull
+  // out, and when". Toppings ride their own gantt lanes, so they're not repeated
+  // here. Special recipes don't use the gantt; they keep their own table below.
+  const ing = (k, g) => ({ k, g });
+  const phaseIng = {
+    mix: [
+      ing("Bread flour", round(v.breadFlour)),
+      ...(semolinaPct > 0 ? [ing("Semolina", round(v.sem))] : []),
+      ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
+      ...(v.potato > 0 ? [ing("Potato, riced", round(v.potato))] : []),
+      ing(express ? "Water, warm" : "Water", round(v.water)),
+      ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)),
+      ...(v.sugar > 0 ? [ing("Sugar/honey", round(v.sugar, 1))] : []),
+      ing("Salt", round(v.salt, 1)),
+      ...(doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : []),
+    ],
+    ...(v.foldOil > 0 ? { [express ? "bulk" : "laminate"]: [ing("Fold oil", round(v.foldOil))] } : {}),
+    pan: [ing("Pan oil", round(v.panOil))],
+    dimple: [
+      ing("Brine water", round(v.brineWater)),
+      ing("Brine oil", round(v.brineOil)),
+      ing("Brine salt", round(v.brineSalt, 1)),
+      ing("Flaky salt", null),
+    ],
+  };
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
   const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, verbosity, tomato }),
@@ -1033,7 +1037,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   ];
 
   // A fixed recipe (Recco / uva / veneta) overrides the dial-driven output.
-  const groups = specialRecipe ? specialRecipe.groups : dialGroups;
+  const groups = specialRecipe ? specialRecipe.groups : null; // dial recipes list ingredients on the gantt
   const STEPS = specialRecipe ? specialRecipe.steps : dialSteps;
   const profile = specialRecipe ? specialRecipe.profile : dialProfile;
 
@@ -1450,7 +1454,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
             The top band is the dough's own clock; each topping sits under the moment its prep happens. <span style={{ fontStyle: "normal" }}>⏱</span> marks a step that takes time — the long ferment is your window to roast, toast and infuse. <span style={{ fontStyle: "normal" }}>↳</span> is what it has to finish (cool, dry…) before it can go on.
           </div>
 
-          <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} C={C} accent={C.olive} />
+          <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} phaseIng={phaseIng} C={C} accent={C.olive} />
 
           {/* Same prep, linearised into one order — tick as you go */}
           <div style={{ borderTop: `1.5px solid ${C.line}`, marginTop: 12, paddingTop: 11 }}>
@@ -1498,7 +1502,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
           </div>
         </div>
 
-        {/* Grouped ingredient table */}
+        {/* Ingredient table — special recipes only; dial recipes list ingredients on the gantt */}
+        {groups && (
         <div style={{ borderRadius: 14, border: `1.5px solid ${C.line}`, overflow: "hidden", marginBottom: 14, background: C.card }}>
           {groups.map((grp, gi) => (
             <div key={grp.title}>
@@ -1531,6 +1536,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
             </div>
           ))}
         </div>
+        )}
 
         {/* Yield summary */}
         <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" }}>
