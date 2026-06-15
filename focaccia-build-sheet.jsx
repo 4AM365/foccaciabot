@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useContext, useEffect } from "react";
 import { QUALITY_AXES, qualities, solveWithin, solveConforming, IDENTITY_KEYS } from "./src/focaccia-model.js";
+import { macrosPer100g } from "./src/nutrition.js";
 
 // ============================================================================
 // Focaccia Dashboard — drive the *qualities* (open crumb, tang, flake, fried
@@ -1064,6 +1065,21 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
 
   // A fixed recipe (Recco / uva / veneta) overrides the dial-driven output.
   const groups = specialRecipe ? specialRecipe.groups : null; // dial recipes list ingredients on the gantt
+  const macros = useMemo(() => macrosPer100g(
+    specialRecipe
+      ? specialRecipe.groups.flatMap((g) => g.items)
+      : [
+          { key: "flour", g: v.breadFlour },
+          { key: "semolina", g: v.sem },
+          { key: "pinsaBlend", g: v.blend },
+          { key: "water", g: v.water },
+          { key: "salt", g: v.salt },
+          { key: "yeast", g: v.yeast },
+          { key: "whiteSugar", g: v.sugar },
+          { key: "oliveOil", g: v.doughOil },
+          { key: "potato", g: v.potato },
+        ]
+  ), [specialRecipe, v]);
   const STEPS = specialRecipe ? specialRecipe.steps : dialSteps;
   const profile = specialRecipe ? specialRecipe.profile : dialProfile;
 
@@ -1548,6 +1564,33 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
                 <div style={summaryCard(C)}><div style={summaryLabel(C)}>Suggested pan</div><div style={{ ...summaryVal(C), fontSize: 17 }}>{panHint(perPan)}</div></div>
               </>}
         </div>
+
+        {/* Nutrition — gram-weighted macros normalised to a 100g serving */}
+        {macros && (
+          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 14, padding: "16px 18px", marginBottom: 28 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Nutrition — per 100g</span>
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft }}>estimated · dough as mixed</span>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {[
+                ["Energy", `${macros.kcal}`, "kcal"],
+                ["Carbs", `${macros.carb}`, "g"],
+                ["of which sugars", `${macros.sugar}`, "g"],
+                ["Fat", `${macros.fat}`, "g"],
+                ["Protein", `${macros.protein}`, "g"],
+              ].map(([label, val, unit]) => (
+                <div key={label} style={{ flex: "1 1 100px", background: C.paperDeep, border: `1px solid ${C.line}`, borderRadius: 10, padding: "11px 13px" }}>
+                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600 }}>{label}</div>
+                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 22, fontWeight: 600, color: C.rust, marginTop: 3 }}>{val}<span style={{ fontSize: 12, opacity: 0.7, marginLeft: 3 }}>{unit}</span></div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: C.inkSoft, fontStyle: "italic", marginTop: 11 }}>
+              Mass-balance of the dough's ingredients (USDA FoodData Central densities). Excludes the pan oil (only partly absorbed); baking drives off water, so baked focaccia runs more energy-dense per 100g.
+            </div>
+          </div>
+        )}
 
         {/* Process steps — special recipes only; dial recipes show them on the gantt */}
         {specialRecipe && (<>
