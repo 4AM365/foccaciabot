@@ -689,6 +689,25 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
 // ---------------------------------------------------------------------------
 const PHASE_ORDER = ["mix", "bulk", "cold", "laminate", "pan", "proof", "dimple", "bake", "cool"];
 
+// Maps each process step (by title) onto its timeline phase, so the gantt block
+// carries the step's bullets + "why". Topping-prep steps are intentionally absent
+// — they ride their own topping lanes.
+const STEP_PHASE = {
+  "Fermentolyse — warm": "mix",
+  "Mix & develop": "mix",
+  "Autolyse": "mix",
+  "Mix in yeast + salt; develop": "mix",
+  "Warm bulk + oiled folds — the 1 hr rise": "bulk",
+  "Bulk start + strength folds": "bulk",
+  "Cold fermentation": "cold",
+  "Laminate — the flaky trick": "laminate",
+  "Pan it · let it relax": "pan",
+  "Final proof — covered": "proof",
+  "Dimple + brine": "dimple",
+  "Bake — hot, dry, low rack": "bake",
+  "Cool — out of the pan": "cool",
+};
+
 function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
   const express = schIdx === 0;
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
@@ -757,17 +776,18 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
 // block beside it — the dough's action, the ingredients + grams to add then, and
 // any topping prep due at that phase. Going vertical gives the ingredients room.
 // Purely presentational — state (ticking) lives in the ordered list below it.
-function TimeGraph({ phases, spine, tracks, phaseIng, C, accent }) {
+function TimeGraph({ phases, spine, tracks, phaseIng, stepsByPhase, C, accent }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {phases.map((p, i) => {
-        const ings = (phaseIng && phaseIng[p.key]) || [];
+        const groups = (phaseIng && phaseIng[p.key]) || [];
+        const steps = (stepsByPhase && stepsByPhase[p.key]) || [];
         const phaseTracks = tracks.filter((t) => t.plan.phase === p.key);
         const last = i === phases.length - 1;
-        const hasBody = spine[p.key] || ings.length || phaseTracks.length;
+        const hasBody = steps.length || groups.length || phaseTracks.length || spine[p.key];
         return (
           <div key={p.key} style={{ display: "grid", gridTemplateColumns: "minmax(92px, 116px) 1fr", gap: 12, alignItems: "start" }}>
-            {/* left: the timeline block — dot on a connecting rail, phase label + clock */}
+            {/* left: dot on a connecting rail, phase label + clock */}
             <div style={{ display: "flex", gap: 9, paddingBottom: last ? 2 : 16 }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", alignSelf: "stretch" }}>
                 <div style={{ width: 13, height: 13, borderRadius: "50%", background: accent, flexShrink: 0, marginTop: 3 }} />
@@ -778,22 +798,42 @@ function TimeGraph({ phases, spine, tracks, phaseIng, C, accent }) {
                 <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: accent, fontWeight: 600 }}>{p.clock}</div>
               </div>
             </div>
-            {/* right: the step block — action, ingredients (room to wrap), topping prep */}
+            {/* right: method steps (why on hover), ingredient cups, topping prep */}
             <div style={{ paddingBottom: last ? 2 : 16 }}>
               {hasBody && (
                 <div style={{ background: C.paperDeep, border: `1px solid ${C.line}`, borderLeft: `3px solid ${accent}`, borderRadius: 9, padding: "9px 12px" }}>
-                  {spine[p.key] && <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{spine[p.key]}</div>}
-                  {ings.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginTop: spine[p.key] ? 7 : 0 }}>
-                      {ings.map((it) => (
-                        <span key={it.k} style={{ fontSize: 12.5, color: C.ink, whiteSpace: "nowrap" }}>
-                          {it.k} <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: accent }}>{it.g != null ? `${it.g}g` : "to taste"}</span>
-                        </span>
+                  {steps.length > 0 ? steps.map((s) => (
+                    <div key={s.n} title={s.why} style={{ cursor: "help", marginBottom: 7 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, display: "flex", alignItems: "baseline", gap: 6 }}>
+                        {s.title}<span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.inkSoft, fontWeight: 400 }}>ⓘ why</span>
+                      </div>
+                      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft, marginTop: 2 }}>
+                        {s.spec.split(" · ").map((seg, k) => (
+                          <span key={s.n + ":" + k} style={{ display: "block", paddingLeft: 11, textIndent: -9, lineHeight: 1.45 }}>• {seg}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )) : (spine[p.key] && <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{spine[p.key]}</div>)}
+
+                  {groups.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: steps.length ? 4 : 0 }}>
+                      {groups.map((grp, gi) => (
+                        <div key={gi} style={{ border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 9px", background: C.card }}>
+                          {grp.label && <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: 0.5, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 2 }}>{grp.label}</div>}
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px" }}>
+                            {grp.items.map((it) => (
+                              <span key={gi + ":" + it.k} style={{ fontSize: 12, color: C.ink, whiteSpace: "nowrap" }}>
+                                {it.k} <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: accent }}>{it.g != null ? `${it.g}g` : "to taste"}</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
+
                   {phaseTracks.map((t) => (
-                    <div key={t.id} style={{ fontSize: 12, color: C.inkSoft, lineHeight: 1.4, marginTop: 6 }}>
+                    <div key={t.id} style={{ fontSize: 12, color: C.inkSoft, lineHeight: 1.4, marginTop: 7 }}>
                       <span style={{ fontWeight: 600, color: C.ink }}>{t.icon} {t.plan.do}</span>
                       {t.plan.dur && <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: accent, fontWeight: 600 }}> · ⏱ {t.plan.dur}</span>}
                       {t.plan.dep && <span style={{ fontStyle: "italic" }}> ↳ {t.plan.dep}</span>}
@@ -974,30 +1014,36 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
 
-  // Ingredients to add at each TIMELINE BLOCK — rendered under the matching gantt
-  // column (the "Add" lane in TimeGraph) so the timeline doubles as "what to pull
-  // out, and when". Toppings ride their own gantt lanes, so they're not repeated
-  // here. Special recipes don't use the gantt; they keep their own table below.
+  // Ingredients for each TIMELINE BLOCK, split into the logical containers you
+  // actually mix them in — the yeast blooms in its own warm-water cup, kept apart
+  // from the flour and from the salt. Each group renders as its own little
+  // rectangle in the gantt block. Special recipes keep their own table below.
   const ing = (k, g) => ({ k, g });
+  const flourItems = [
+    ing("Bread flour", round(v.breadFlour)),
+    ...(semolinaPct > 0 ? [ing("Semolina", round(v.sem))] : []),
+    ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
+    ...(v.potato > 0 ? [ing("Potato, riced", round(v.potato))] : []),
+  ];
+  const yeastItems = [ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)), ...(v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [])];
   const phaseIng = {
-    mix: [
-      ing("Bread flour", round(v.breadFlour)),
-      ...(semolinaPct > 0 ? [ing("Semolina", round(v.sem))] : []),
-      ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
-      ...(v.potato > 0 ? [ing("Potato, riced", round(v.potato))] : []),
-      ing(express ? "Water, warm" : "Water", round(v.water)),
-      ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)),
-      ...(v.sugar > 0 ? [ing("Sugar/honey", round(v.sugar, 1))] : []),
-      ing("Salt", round(v.salt, 1)),
-      ...(doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : []),
-    ],
-    ...(v.foldOil > 0 ? { [express ? "bulk" : "laminate"]: [ing("Fold oil", round(v.foldOil))] } : {}),
-    pan: [ing("Pan oil", round(v.panOil))],
+    mix: express
+      ? [
+          { label: "main bowl", items: [...flourItems, ...(doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : [])] },
+          { label: "bloom first · a cup", items: [...yeastItems, ing("Water, warm ~105°F", round(v.water))] },
+          { label: "in last", items: [ing("Salt", round(v.salt, 1))] },
+        ]
+      : [
+          { label: "autolyse bowl", items: [...flourItems, ing("Water", round(v.water))] },
+          { label: "then work in", items: yeastItems },
+          { label: "in last", items: [ing("Salt", round(v.salt, 1))] },
+          ...(doughOilPct > 0 ? [{ label: "drizzle in", items: [ing("Dough oil", round(v.doughOil))] }] : []),
+        ],
+    ...(v.foldOil > 0 ? { [express ? "bulk" : "laminate"]: [{ items: [ing("Fold oil", round(v.foldOil))] }] } : {}),
+    pan: [{ items: [ing("Pan oil", round(v.panOil))] }],
     dimple: [
-      ing("Brine water", round(v.brineWater)),
-      ing("Brine oil", round(v.brineOil)),
-      ing("Brine salt", round(v.brineSalt, 1)),
-      ing("Flaky salt", null),
+      { label: "salamoia · a cup", items: [ing("Water", round(v.brineWater)), ing("Olive oil", round(v.brineOil)), ing("Fine salt", round(v.brineSalt, 1))] },
+      { label: "to finish", items: [ing("Flaky salt", null)] },
     ],
   };
 
@@ -1006,6 +1052,13 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, verbosity, tomatoOn, tomatoMode, tomatoPct, f]);
   const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato }),
     [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode]);
+  // Process steps bucketed onto their timeline phase, so each gantt block shows
+  // its method bullets (and the "why" on hover). Topping steps are left out.
+  const stepsByPhase = useMemo(() => {
+    const m = {};
+    dialSteps.forEach((s) => { const ph = STEP_PHASE[s.title]; if (ph) (m[ph] = m[ph] || []).push(s); });
+    return m;
+  }, [dialSteps]);
 
   const dialProfile = [
     hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
@@ -1436,7 +1489,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
             Each block is a phase of the bake; the card beside it is what the dough's doing, what to add then (with grams), and any topping prep due. <span style={{ fontStyle: "normal" }}>⏱</span> marks a step that takes time — the long ferment is your window to roast, toast and infuse. <span style={{ fontStyle: "normal" }}>↳</span> is what it has to finish (cool, dry…) before it can go on.
           </div>
 
-          <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} phaseIng={phaseIng} C={C} accent={C.olive} />
+          <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} phaseIng={phaseIng} stepsByPhase={stepsByPhase} C={C} accent={C.olive} />
 
           {/* Same prep, linearised into one order — tick as you go */}
           <div style={{ borderTop: `1.5px solid ${C.line}`, marginTop: 12, paddingTop: 11 }}>
@@ -1534,7 +1587,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
               </>}
         </div>
 
-        {/* Process — succinct bullet steps; tap any step for the why */}
+        {/* Process steps — special recipes only; dial recipes show them on the gantt */}
+        {specialRecipe && (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600, marginBottom: 12 }}>
           <span>Process — tap any step for the why</span>
           <span style={{ color: C.inkSoft, letterSpacing: 1 }}>{specialRecipe ? specialRecipe.clock : `${sch.clock}${express ? " + bake" : ""}`}</span>
@@ -1564,6 +1618,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
             </div>
           );
         })}
+        </>)}
 
         {/* Cherry-tomato pan note */}
         {!special && twoPans && toppingSel.tomato && (
