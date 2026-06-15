@@ -762,14 +762,7 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
     if (plan) tracks.push({ id: t.id, icon: t.icon, label: t.label, plan });
   });
 
-  // Linearised: same prep, sorted into one do-this-then-that order (stable, so
-  // ties keep registry order). This is the explicit "linear order" view.
-  const ordered = tracks
-    .map((t, i) => ({ t, i }))
-    .sort((a, b) => (PHASE_ORDER.indexOf(a.t.plan.phase) - PHASE_ORDER.indexOf(b.t.plan.phase)) || (a.i - b.i))
-    .map((x) => x.t);
-
-  return { phases, spine, tracks, ordered };
+  return { phases, spine, tracks };
 }
 
 // A vertical timeline of the bake: phases run top→bottom, each with a wide step
@@ -871,7 +864,6 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const [toppingSel, setToppingSel] = useState({ rosemary: true });
   const [tomatoMode, setTomatoMode] = useState("raw"); // raw | roast
   const [tomatoPct, setTomatoPct] = useState(20);       // cherry tomatoes as % of flour
-  const [prepDone, setPrepDone] = useState({});         // mise-en-place checklist
   const verbosity = 1; // steps are always succinct — the verbosity control was dropped
   // Light/dark + vibe inherit from the host Quartz blog (`saved-theme` /
   // `saved-vibe` on <html>); standalone → light + jdm.
@@ -921,7 +913,6 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   }
   function applySpecial(id) { setSpecial(id); setOpenStep("01"); }
   const toggleTopping = (id) => setToppingSel((t) => ({ ...t, [id]: !t[id] }));
-  const togglePrep = (key) => setPrepDone((p) => ({ ...p, [key]: !p[key] }));
   const activeStyle = boundStyle || "custom";
   const freestyleNearest = (!boundStyle && !special) ? solved.style : null;
   const selectedToppings = TOPPINGS.filter((t) => toppingSel[t.id]);
@@ -1491,35 +1482,6 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
 
           <TimeGraph phases={timeline.phases} spine={timeline.spine} tracks={timeline.tracks} phaseIng={phaseIng} stepsByPhase={stepsByPhase} C={C} accent={C.olive} />
 
-          {/* Same prep, linearised into one order — tick as you go */}
-          <div style={{ borderTop: `1.5px solid ${C.line}`, marginTop: 12, paddingTop: 11 }}>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 9 }}>In order · tick as you go</div>
-            {timeline.ordered.length === 0 ? (
-              <div style={{ fontSize: 13, color: C.inkSoft, fontStyle: "italic" }}>Nothing to prep ahead — instant yeast goes straight in, and your toppings go on at dimpling.</div>
-            ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {timeline.ordered.map((t, i) => {
-                const key = `plan:${t.id}`;
-                const done = !!prepDone[key];
-                return (
-                  <button key={key} onClick={() => togglePrep(key)} style={{
-                    display: "flex", gap: 10, alignItems: "flex-start", textAlign: "left", cursor: "pointer",
-                    background: "transparent", border: "none", padding: "1px 0", fontFamily: "'Fraunces', serif", color: C.ink }}>
-                    <span style={{ width: 17, height: 17, borderRadius: 5, border: `2px solid ${done ? C.olive : C.line}`, background: done ? C.olive : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: C.onAccent, lineHeight: 1, marginTop: 2 }}>{done ? "✓" : ""}</span>
-                    <span style={{ flex: 1, lineHeight: 1.4 }}>
-                      <span style={{ fontSize: 14, color: done ? C.inkSoft : C.ink, textDecoration: done ? "line-through" : "none", opacity: done ? 0.7 : 1 }}>
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: C.crust, marginRight: 7 }}>{String(i + 1).padStart(2, "0")}</span>
-                        {t.icon} {t.plan.do}
-                        {t.plan.dur && <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: C.olive, fontWeight: 600 }}> · ⏱ {t.plan.dur}</span>}
-                      </span>
-                      {t.plan.dep && <span style={{ display: "block", fontSize: 12, fontStyle: "italic", color: C.inkSoft, marginTop: 1 }}>↳ {t.plan.dep}</span>}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            )}
-          </div>
         </div>
         </>}
 
