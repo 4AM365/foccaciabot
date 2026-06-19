@@ -1,8 +1,66 @@
-# foccaciabot — reference corpus
+# foccaciabot
 
-RAG-ready notes distilled from three baking-science references, for grounding a
-focaccia assistant in *why* a formula behaves the way it does (hydration,
-fermentation, gluten development, oven dynamics) rather than just recipes.
+Two things live here, and they're connected:
+
+1. **An interactive focaccia calculator** — a quality-driven dashboard. You drive
+   the *qualities* you want (open crumb, tang, flake, crust, richness, salt) and
+   pick a *style*; an inverse model solves back to a full baker's-percentage
+   formula and method, live.
+2. **A RAG reference corpus** — cleaned notes distilled from three baking-science
+   books, used to *ground* the calculator's coefficients (and any downstream
+   focaccia assistant) in **why** a formula behaves the way it does — hydration,
+   fermentation, gluten development, oven dynamics — rather than just recipes.
+
+The calculator's dial-science is cited straight to the corpus: every coefficient
+in the model traces to a chunk (see `CITES` in `src/focaccia-model.js`).
+
+## The calculator
+
+| File | What it is |
+|------|------------|
+| `src/focaccia-model.js` | **The model — the meat.** A two-layer system (recipe → latent dough state → sensory qualities) plus an identity-fixed inverse that solves *qualities → recipe* by gradient descent. Exports `qualities()`, `solveWithin()`, `solveConforming()`, `classify()`, `deviations()`, `QUALITY_AXES`, `IDENTITY_KEYS`. |
+| `focaccia-build-sheet.jsx` | The React UI — a slider per quality axis, style picker, live recipe + step-by-step method, theming (light / dark / a GeoCities skin), and toppings. |
+| `src/main.jsx` + `index.html` | Vite harness that mounts the build sheet for standalone local dev. |
+
+The model's central idea: a focaccia's **identity** (ferment schedule, durum-semola
+vs. plain wheat, two-pan deep bake) is never solved away — it's what makes a style
+what it is. The continuous **levers** (hydration, lamination folds, oils, salt) are
+tuned *within* that identity to hit your target qualities.
+
+### Run it
+
+```bash
+npm install
+npm run dev        # Vite dev server on http://localhost:5173
+npm run build      # production bundle → dist/
+```
+
+### Used by the blog
+
+This repo is the **single source of truth** for the focaccia widget on the 4AM365
+blog. It's consumed as a git dependency (`github:4AM365/foccaciabot`, package name
+`focaccia-widget`) — the blog holds only a one-line re-export shim, **not a copy**.
+The blog bundles it with esbuild, aliasing React → `preact/compat` at its own build
+step, so the component imports plain `react` here and stays portable across both
+build systems.
+
+To ship a change to the live widget, run the integration pipeline from this repo.
+It commits + pushes here, then in the blog pulls the new commit, rebuilds the widget
+bundle, syncs the model doc, and commits + pushes (which auto-deploys):
+
+```bash
+npm run publish:blog -- "your change description"
+# equivalently: node scripts/publish.mjs "your change description"
+```
+
+`docs/focaccia-model.md` is the **canonical** model-equations explainer; the pipeline
+publishes a copy to the blog at `/kitchen/focaccia-model`. Keep this repo all-inclusive
+— the model code, the calculator, and the model docs all live here.
+
+## The reference corpus
+
+RAG-ready notes distilled from three baking-science references, for grounding the
+calculator (and any focaccia assistant) in *why* a formula behaves the way it does.
 
 ## What's tracked vs. ignored
 
