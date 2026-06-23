@@ -450,6 +450,26 @@ function round(n, dp = 0) {
 }
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
+// ---- Recipe save/load -------------------------------------------------------
+// A recipe export is human-readable text with a single machine-readable
+// `@FOCACCIABOT v1@ {json}` line at the bottom; pasting the whole thing back
+// reloads every input exactly. Both helpers are plain DOM/JSON, no deps.
+const IO_TAG = "FOCACCIABOT";
+function downloadTextFile(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+function parseRecipeBlock(text) {
+  const m = String(text).match(new RegExp("@" + IO_TAG + "[^@]*@\\s*(\\{[\\s\\S]*\\})"));
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { return null; }
+}
+const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "recipe";
+
 // ---------------------------------------------------------------------------
 // Kitchen environment — altitude, humidity & room temperature recalibration
 // ---------------------------------------------------------------------------
@@ -910,6 +930,12 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const [envLoading, setEnvLoading] = useState(false);
   const [envError, setEnvError] = useState("");
   const [envApplied, setEnvApplied] = useState(true); // fold the recalibration into the recipe
+  // Recipe save/load — a plaintext export you can copy, download as .txt, or
+  // paste back to reload every input. `notes` records how a batch turned out.
+  const [notes, setNotes] = useState("");
+  const [importText, setImportText] = useState("");
+  const [ioOpen, setIoOpen] = useState(false);
+  const [ioMsg, setIoMsg] = useState("");
 
   // Inherit the page's vibe + brightness → palette (standalone defaults to jdm).
   // `geocities` also drives the retro className + GEO_CSS injection below.
@@ -1111,6 +1137,93 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
       <div style={{ fontFamily: mono, fontSize: 18, fontWeight: 600, color: C.olive }}>{value}</div>
     </div>
   );
+
+  // ---- Recipe export / import ----------------------------------------------
+  const recipeName = specialDef ? specialDef.name : !boundStyle ? "Freestyle" : STYLE_BY_ID[boundStyle].name;
+  const ioState = {
+    v: 1, kind: "focaccia",
+    flour: f, q, boundStyle, special,
+    yeastType, toppingSel, tomatoMode, tomatoPct,
+    zip, envDate, roomTempInput, tempUnit, humidityManual, envApplied,
+    notes,
+  };
+  const recipeText = useMemo(() => {
+    const L = [];
+    L.push(`FocacciaBot — ${recipeName}`);
+    L.push(`${special ? "Fixed recipe" : boundStyle ? "Bound style (sliders tune within it)" : "Freestyle"} · ${f} g flour · ${round(v.doughWeight)} g dough${twoPans ? " (two pans)" : ""}`);
+    L.push(`Saved ${new Date().toISOString().slice(0, 10)}`);
+    L.push("=".repeat(60));
+    L.push("");
+    L.push("INGREDIENTS");
+    if (groups) {
+      groups.forEach((g) => {
+        L.push(`  ${g.title}${g.caption ? ` — ${g.caption}` : ""}`);
+        g.items.forEach((it) => L.push(`    ${it.k} … ${it.g != null ? `${it.g} g` : "to taste"}`));
+      });
+    } else {
+      // Dial recipes list ingredients per mixing container on the gantt.
+      Object.values(phaseIng).forEach((blocks) => {
+        blocks.forEach((b) => {
+          if (b.label) L.push(`  ${b.label}`);
+          b.items.forEach((it) => L.push(`    ${it.k} … ${it.g != null ? `${it.g} g` : "to taste"}`));
+        });
+      });
+    }
+    L.push("");
+    L.push("METHOD");
+    STEPS.forEach((s) => {
+      L.push(`  ${s.n}. ${s.title}`);
+      String(s.spec || "").split(" · ").filter(Boolean).forEach((seg) => L.push(`       - ${seg}`));
+    });
+    L.push("");
+    L.push("PROFILE");
+    L.push(`  ${profile.join(" · ")}`);
+    if (envOn) {
+      L.push("");
+      L.push("KITCHEN (recalibration applied)");
+      L.push(`  ${envData ? envData.place + " · " : ""}${elevFtUsed} ft · ${humidityUsed}% RH · room ${roomTempInput}°${tempUnit}`);
+    }
+    L.push("");
+    L.push("NOTES");
+    L.push(notes.trim() ? notes.trim().split("\n").map((x) => `  ${x}`).join("\n") : "  (none yet — jot down how this batch turned out)");
+    L.push("");
+    L.push("=".repeat(60));
+    L.push("Paste this whole block into the Import box to reload this recipe.");
+    L.push(`@${IO_TAG} v1@ ${JSON.stringify(ioState)}`);
+    return L.join("\n");
+  }, [recipeName, special, boundStyle, f, v, twoPans, groups, phaseIng, STEPS, profile, notes, envOn, envData, elevFtUsed, humidityUsed, roomTempInput, tempUnit, q, yeastType, toppingSel, tomatoMode, tomatoPct, zip, envDate, humidityManual, envApplied]);
+
+  function loadRecipe() {
+    const d = parseRecipeBlock(importText);
+    if (!d) { setIoMsg("⚠ No recipe data found — paste a full FocacciaBot export (incl. the @FOCACCIABOT@ line)."); return; }
+    if (d.kind && d.kind !== "focaccia") { setIoMsg(`⚠ That's a ${d.kind} recipe, not a focaccia one.`); return; }
+    try {
+      if (typeof d.flour === "number") setFlour(d.flour);
+      if (d.q && typeof d.q === "object") setQ(d.q);
+      setBoundStyle(d.boundStyle ?? null);
+      setSpecial(d.special ?? null);
+      if (d.yeastType) setYeastType(d.yeastType);
+      if (d.toppingSel && typeof d.toppingSel === "object") setToppingSel(d.toppingSel);
+      if (d.tomatoMode) setTomatoMode(d.tomatoMode);
+      if (typeof d.tomatoPct === "number") setTomatoPct(d.tomatoPct);
+      if (typeof d.zip === "string") setZip(d.zip);
+      if (d.envDate) setEnvDate(d.envDate);
+      if (d.roomTempInput != null) setRoomTempInput(String(d.roomTempInput));
+      if (d.tempUnit) setTempUnit(d.tempUnit);
+      if (d.humidityManual != null) setHumidityManual(String(d.humidityManual));
+      if (typeof d.envApplied === "boolean") setEnvApplied(d.envApplied);
+      if (typeof d.notes === "string") setNotes(d.notes);
+      setIoMsg("✓ Recipe loaded. (Kitchen conditions: re-fetch by ZIP if you used them.)");
+    } catch { setIoMsg("⚠ Couldn't load that recipe."); }
+  }
+  function copyRecipe() {
+    try { navigator.clipboard.writeText(recipeText); setIoMsg("✓ Copied to clipboard."); }
+    catch { setIoMsg("Select the text above and copy it manually."); }
+  }
+  function downloadRecipe() {
+    downloadTextFile(`${slugify(recipeName)}-focaccia.txt`, recipeText);
+    setIoMsg("✓ Downloaded .txt");
+  }
 
   return (
     <ThemeCtx.Provider value={C}>
@@ -1653,6 +1766,41 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
             </div>
           </div>
         )}
+
+        {/* Save / load — plaintext recipe export, import & notes */}
+        <div style={{ marginTop: 26, border: `1.5px solid ${C.line}`, borderRadius: 14, background: C.card, overflow: "hidden" }}>
+          <button onClick={() => setIoOpen((o) => !o)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "transparent", border: "none", cursor: "pointer", padding: "14px 16px", fontFamily: mono, fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.rust, fontWeight: 600 }}>
+            <span>Save / load this recipe</span>
+            <span style={{ fontSize: 20, color: C.olive, transform: ioOpen ? "rotate(45deg)" : "none", transition: "transform .2s ease", lineHeight: 1 }}>+</span>
+          </button>
+          {ioOpen && (
+            <div style={{ padding: "0 16px 18px", animation: "riseIn .25s ease" }}>
+              <div style={{ fontSize: 13.5, lineHeight: 1.5, color: C.inkSoft, marginBottom: 14 }}>
+                Jot down how a batch turned out, then copy or download the plaintext recipe below — it carries every setting. Paste a saved recipe back into the import box to reload it exactly.
+              </div>
+
+              <label style={{ display: "block", fontFamily: mono, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 5 }}>Notes — how you liked this bake</label>
+              <textarea value={notes} onChange={(e) => { setNotes(e.target.value); setIoMsg(""); }} rows={3} placeholder="e.g. 24h cold proof was the move; bumped pan oil for a crispier base."
+                style={{ width: "100%", boxSizing: "border-box", fontFamily: "'Fraunces', serif", fontSize: 14.5, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.paperDeep, color: C.ink, outline: "none", resize: "vertical", marginBottom: 16 }} />
+
+              <label style={{ display: "block", fontFamily: mono, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 5 }}>Recipe — copy &amp; paste, or download</label>
+              <textarea readOnly value={recipeText} rows={9} onFocus={(e) => e.target.select()}
+                style={{ width: "100%", boxSizing: "border-box", fontFamily: mono, fontSize: 11.5, lineHeight: 1.5, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.paperDeep, color: C.ink, outline: "none", resize: "vertical" }} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, marginBottom: 16 }}>
+                <button onClick={copyRecipe} style={{ border: "none", borderRadius: 9, padding: "9px 16px", cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 600, background: C.olive, color: C.onAccent }}>Copy</button>
+                <button onClick={downloadRecipe} style={{ border: `1.5px solid ${C.olive}`, borderRadius: 9, padding: "9px 16px", cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 600, background: "transparent", color: C.olive }}>Download .txt</button>
+              </div>
+
+              <label style={{ display: "block", fontFamily: mono, fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: C.inkSoft, fontWeight: 600, marginBottom: 5 }}>Import — paste a saved recipe to reload it</label>
+              <textarea value={importText} onChange={(e) => { setImportText(e.target.value); setIoMsg(""); }} rows={4} placeholder="Paste a saved FocacciaBot recipe here…"
+                style={{ width: "100%", boxSizing: "border-box", fontFamily: mono, fontSize: 11.5, lineHeight: 1.5, padding: "10px 12px", borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.paperDeep, color: C.ink, outline: "none", resize: "vertical" }} />
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                <button onClick={loadRecipe} style={{ border: "none", borderRadius: 9, padding: "9px 16px", cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 600, background: C.rust, color: C.onAccent }}>Load recipe</button>
+                {ioMsg && <span style={{ fontFamily: mono, fontSize: 12, color: C.inkSoft }}>{ioMsg}</span>}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div style={{ textAlign: "center", marginTop: 26, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: C.inkSoft, letterSpacing: 1, lineHeight: 1.6 }}>
           baker's % locked to flour mass · everything scales live<br />
