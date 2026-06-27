@@ -17,7 +17,10 @@ title: Focaccia model — the equations
 
 - **Identity** (dashed) is what makes a focaccia *what it is* — the ferment schedule,
   durum-semola share, boiled-potato share, the pinsa rice/soy blend, the two-pan deep
-  bake. The inverse never solves it away.
+  bake, and the **base-flour strength** (`STR`) you pick for the regular-blend wheat.
+  The inverse never solves it away — instead the levers offset *within* it (swap a weaker
+  AP flour and the solver re-tunes hydration/folds to hold the same crumb). `chewiness`
+  is a read-only consequence of the resulting gluten, surfaced beside the recipe.
 - **Levers** are the continuous dials tuned *within* an identity: hydration, folds,
   pan oil, dough oil, salt.
 - Every arrow is a term in the equation written inside the node it points to. A node
@@ -36,6 +39,7 @@ graph LR
     SEM["SEM = semolina/100"]
     POT["POT = potato/100"]
     BLEND["BLEND = rice+soy/100"]
+    STR["STR = base-flour strength<br/>(AP 0.85 · bread 1.0 · strong 1.12 · durum-00 0.92)"]
     twoPans["twoPans  (method flag)"]
   end
   subgraph LV["Levers — tuned within an identity"]
@@ -48,7 +52,8 @@ graph LR
 
   subgraph L1["Latent dough state — constitutive equations"]
     slack["slack = clamp(H − 0.60, 0, 0.40)"]
-    gluten["gluten = clamp( (0.55 + 0.15·folds)<br/>· (1 + 0.10·sch) · (1 − 0.6·DO)<br/>· (1 − 0.4·SEM) · (1 − 0.5·POT)<br/>· (1 − 0.6·BLEND), 0, 2 )"]
+    gluten["gluten = clamp( STR · (0.55 + 0.15·folds)<br/>· (1 + 0.10·sch) · (1 − 0.6·DO)<br/>· (1 − 0.4·SEM) · (1 − 0.5·POT)<br/>· (1 − 0.6·BLEND), 0, 2 )"]
+    chewiness["chewiness = sat(gluten)·(1 − 0.30·DO)"]
     gas["gas = 0.45 + 0.17·sch"]
     tangState["tangState = 0.05 + 0.30·sch"]
     ovenSpring["ovenSpring = gas · sat(gluten)<br/>· (0.55 + 0.45·sat(slack/0.25))"]
@@ -68,6 +73,9 @@ graph LR
   %% recipe → latent (constitutive)
   H --> slack
   folds --> gluten
+  STR --> gluten
+  gluten --> chewiness
+  DO --> chewiness
   sch --> gluten
   DO --> gluten
   SEM --> gluten
@@ -100,7 +108,7 @@ graph LR
   S --> salt
 
   classDef identity stroke-dasharray:6 3,stroke-width:1.5px;
-  class sch,SEM,twoPans,POT,BLEND identity;
+  class sch,SEM,twoPans,POT,BLEND,STR identity;
 ```
 
 `twoPans` is an identity dimension that selects the bake *method/format* but does not

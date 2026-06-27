@@ -18,6 +18,12 @@
 // kcal, carbohydrate (g), fat (g), protein (g), sugars (g) — all per 100 g.
 export const MACROS = {
   flour:      { kcal: 364, carb: 76.3, fat: 1.0,  protein: 10.3, sugar: 0.3 },
+  // Base-flour variants — the grind/strength selector picks one. Protein (and the
+  // carbohydrate it displaces) move with the flour; energy is ~flat.
+  flourAP:     { kcal: 364, carb: 76.3, fat: 1.0, protein: 10.3, sugar: 0.3 }, // = `flour` (USDA AP)
+  flourBread:  { kcal: 361, carb: 72.5, fat: 1.4, protein: 12.5, sugar: 0.3 },
+  flourStrong: { kcal: 362, carb: 71.0, fat: 1.5, protein: 14.0, sugar: 0.3 },
+  flourDurum:  { kcal: 360, carb: 72.8, fat: 1.4, protein: 13.5, sugar: 0 },
   semolina:   { kcal: 360, carb: 72.8, fat: 1.1,  protein: 12.7, sugar: 0 },
   pinsaBlend: { kcal: 366, carb: 76.0, fat: 1.2,  protein: 8.0,  sugar: 0.5 }, // rice+soy blend, approx
   water:      { kcal: 0,   carb: 0,    fat: 0,    protein: 0,    sugar: 0 },
@@ -39,6 +45,10 @@ export const MACROS = {
 // USDA FoodData Central ids backing each density.
 export const FDC_IDS = {
   flour: "169761",       // Wheat flour, white, all-purpose, enriched
+  flourAP: "169761",     // Wheat flour, white, all-purpose, enriched
+  flourBread: "168894",  // Wheat flour, white, bread, enriched
+  flourStrong: "168894", // strong/high-gluten — bread-flour density, protein bumped
+  flourDurum: "169740",  // Durum (00 grano duro ≈ durum density)
   semolina: "169740",    // Semolina, enriched
   water: "174158",       // Water, bottled, generic
   oliveOil: "171413",    // Oil, olive, salad or cooking

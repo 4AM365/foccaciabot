@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useContext, useEffect } from "react";
-import { QUALITY_AXES, qualities, solveWithin, solveConforming, IDENTITY_KEYS } from "./src/focaccia-model.js";
+import { QUALITY_AXES, qualities, solveWithin, solveConforming, IDENTITY_KEYS, state as doughStateOf, FLOURS, FLOUR_BY_ID, DEFAULT_FLOUR } from "./src/focaccia-model.js";
 import { macrosPer100g } from "./src/nutrition.js";
 
 // ============================================================================
@@ -893,9 +893,16 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   // (conforms to the nearest style). See src/focaccia-model.js.
   const [q, setQ] = useState(D0.q);
   const [boundStyle, setBoundStyle] = useState(DEFAULT_STYLE);
+  // Base ("regular blend") flour — grind/strength of the wheat the dough is built
+  // on. A baker's choice (like yeast form), not a quality the model solves; its
+  // gluten strength is fed into the solve so the levers OFFSET to hold the target
+  // crumb (see src/focaccia-model.js · FLOURS).
+  const [flourId, setFlourId] = useState(DEFAULT_FLOUR);
+  const flourDef = FLOUR_BY_ID[flourId] || FLOUR_BY_ID[DEFAULT_FLOUR];
+  const flourStrength = flourDef.strength;
   const solved = useMemo(() => boundStyle
-    ? solveWithin(q, identityOf(STYLE_BY_ID[boundStyle].set), {})
-    : solveConforming(q, STYLES, {}), [q, boundStyle]);
+    ? solveWithin(q, { ...identityOf(STYLE_BY_ID[boundStyle].set), flourStrength }, {})
+    : solveConforming(q, STYLES, { identity: { flourStrength } }), [q, boundStyle, flourStrength]);
   const recipe = solved.recipe;
   const { hydration, schIdx, folds, panOilPct, doughOilPct, saltPct, semolinaPct, twoPans, potatoPct, pinsaBlendPct } = recipe;
   const [yeastType, setYeastType] = useState("instant");
@@ -996,8 +1003,18 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     [condReady, elevFtUsed, humidityUsed, rt]
   );
   const envOn = !!(condReady && envApplied && !special);
-  const hydrationAdj = round(clamp(hydration + (envOn ? envAdj.hydrationDelta : 0), 55, 100), 1);
+  // Base flour absorption: a thirsty strong/durum flour wants a touch more water
+  // for the same dough feel; a soft AP a touch less. A workability nudge on the
+  // poured water (the crumb target itself was already solved via flourStrength),
+  // mirroring how the environment delta is applied. [flour_absorption]
+  const flourAbsorb = special ? 0 : (flourDef.absorb || 0);
+  const hydrationAdj = round(clamp(hydration + (envOn ? envAdj.hydrationDelta : 0) + flourAbsorb, 55, 100), 1);
   const yeastEnvFactor = envOn ? envAdj.yeastFactor : 1;
+
+  // Final dough state (incl. the chosen flour's strength) → chewiness readout (0–100),
+  // so a flour swap's effect on chew is visible alongside the recipe.
+  const doughState = useMemo(() => doughStateOf(recipe), [recipe]);
+  const chew = Math.round(clamp((doughState.gluten - 0.3) / 0.9 * 100, 0, 100));
 
   async function runEnvFetch() {
     setEnvLoading(true);
@@ -1055,7 +1072,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   // rectangle in the gantt block. Special recipes keep their own table below.
   const ing = (k, g) => ({ k, g });
   const flourItems = [
-    ing("Bread flour", round(v.breadFlour)),
+    ing(flourDef.label, round(v.breadFlour)),
     ...(semolinaPct > 0 ? [ing("Semolina", round(v.sem))] : []),
     ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
     ...(v.potato > 0 ? [ing("Potato, riced", round(v.potato))] : []),
@@ -1096,6 +1113,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   }, [dialSteps]);
 
   const dialProfile = [
+    `${flourDef.label} base (${flourDef.protein}% protein, chew ${chew}/100)`,
     hydration >= 84 ? "open, custardy crumb" : hydration >= 76 ? "airy, balanced crumb" : "tight, bread-y crumb",
     sch.tang,
     folds === 0 ? "pillowy, no shred" : folds <= 2 ? "light flaky shred" : "deeply flaky, shreddy",
@@ -1112,7 +1130,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     specialRecipe
       ? specialRecipe.groups.flatMap((g) => g.items)
       : [
-          { key: "flour", g: v.breadFlour },
+          { key: flourDef.macroKey, g: v.breadFlour },
           { key: "semolina", g: v.sem },
           { key: "pinsaBlend", g: v.blend },
           { key: "water", g: v.water },
@@ -1142,7 +1160,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const recipeName = specialDef ? specialDef.name : !boundStyle ? "Freestyle" : STYLE_BY_ID[boundStyle].name;
   const ioState = {
     v: 1, kind: "focaccia",
-    flour: f, q, boundStyle, special,
+    flour: f, q, boundStyle, special, flourId,
     yeastType, toppingSel, tomatoMode, tomatoPct,
     zip, envDate, roomTempInput, tempUnit, humidityManual, envApplied,
     notes,
@@ -1199,6 +1217,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     if (d.kind && d.kind !== "focaccia") { setIoMsg(`⚠ That's a ${d.kind} recipe, not a focaccia one.`); return; }
     try {
       if (typeof d.flour === "number") setFlour(d.flour);
+      if (typeof d.flourId === "string" && FLOUR_BY_ID[d.flourId]) setFlourId(d.flourId);
       if (d.q && typeof d.q === "object") setQ(d.q);
       setBoundStyle(d.boundStyle ?? null);
       setSpecial(d.special ?? null);
@@ -1529,6 +1548,31 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
           </div>
         </div>
 
+        {/* Base flour — grind/strength of the regular-blend wheat. Feeds gluten
+            strength into the solve (levers offset to hold the crumb) + an
+            absorption nudge on the water. Not a quality the model solves. */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 12 }}>
+          <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "11px 14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>Base flour</span>
+              <div style={{ display: "flex", gap: 4, background: C.paperDeep, borderRadius: 9, padding: 4, flexWrap: "wrap" }}>
+                {FLOURS.map((fl) => {
+                  const on = flourId === fl.id;
+                  return (
+                    <button key={fl.id} onClick={() => setFlourId(fl.id)} title={`${fl.grind} · ${fl.protein}% protein`} style={{ border: "none", borderRadius: 7, padding: "6px 11px", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 600, background: on ? C.olive : "transparent", color: on ? C.onAccent : C.inkSoft, transition: "all .15s ease" }}>{fl.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: C.inkSoft, fontFamily: "'IBM Plex Mono', monospace", marginTop: 7, lineHeight: 1.5 }}>
+              {flourDef.grind} · {flourDef.protein}% protein · chew {chew}/100
+              {flourAbsorb !== 0 && <> · water {flourAbsorb > 0 ? "+" : ""}{flourAbsorb}% for absorption</>}
+              {flourId !== DEFAULT_FLOUR && <> · levers offset to hold the crumb</>}
+            </div>
+            <div style={{ fontSize: 12.5, color: C.ink, marginTop: 6, lineHeight: 1.45 }}>{flourDef.note}</div>
+          </div>
+        </div>
+
         {/* Calculated variables — the levers solved from your qualities (the "how") */}
         <div style={{ background: C.card, border: `1.5px solid ${C.line}`, borderRadius: 12, padding: "13px 15px", marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 9, flexWrap: "wrap", gap: 6 }}>
@@ -1540,7 +1584,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
               ["Ferment", sch.name, sch.tang],
               ["Hydration", `${hydration}%`, hydration >= 84 ? "open & custardy" : hydration >= 76 ? "airy & balanced" : "tight & bread-y"],
               ["Lamination", folds === 0 ? "none" : `${folds} oiled fold${folds > 1 ? "s" : ""}`, folds === 0 ? "pillowy" : "flaky shred"],
-              ["Grain", semolinaPct > 0 ? `${semolinaPct}% durum` : "all bread flour", semolinaPct > 0 ? "sandy crust" : "smooth crumb"],
+              ["Grain", `${flourDef.label}${semolinaPct > 0 ? ` + ${semolinaPct}% durum` : ""}`, `chew ${chew}/100 · ${flourDef.protein}% protein`],
               ["Oil", `${round(doughOilPct, 1)}% dough · ${panOilPct}% pan`, "tender vs. fried base"],
               ["Bake", twoPans ? "two pans" : "one pan", `${round(saltPct, 1)}% salt`],
             ].map(([k, val, sub], i) => (

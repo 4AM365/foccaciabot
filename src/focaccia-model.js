@@ -25,7 +25,45 @@ export const CITES = {
   fat_shortens_gluten:     ["bressanini-scienza-della-pasticceria:0067:00:36da9e91"],
   flour_gluten:            ["bressanini-scienza-della-pasticceria:0075:00:7d1dcdb1"],
   salt_in_dough:           ["cauvain-technology-of-breadmaking:0001:06:4a593f33"],
+  // Base-flour strength & absorption: protein band sets gluten strength; harder,
+  // higher-protein wheat carries more damaged starch and drinks more water.
+  flour_strength:          ["cauvain-technology-of-breadmaking:0002:10:68b2c088",
+                            "cauvain-technology-of-breadmaking:0002:07:09b11042"],
+  flour_absorption:        ["cauvain-technology-of-breadmaking:0011:08:7f13064b",
+                            "cauvain-technology-of-breadmaking:0011:06:695973c8"],
 };
+
+// ============================================================================
+// BASE FLOUR — the "regular blend" wheat everything else is built on.
+//
+// A flour is a GRIND (00 = silky-fine … coarser) crossed with a PROTEIN / strength
+// band. Protein and damaged starch are what actually move the dough: hard,
+// high-protein wheat carries more gluten and 6–12% damaged starch (vs 2–4% in soft
+// wheat), so it drinks more water and chews springier. [flour_strength],
+// [flour_absorption]
+//
+//   strength  multiplies the gluten network (bread flour = 1.0 baseline) → chew,
+//             flake, oven spring, how open a crumb it can hold.
+//   absorb    nudges hydration (% of flour) for the same dough feel — thirsty
+//             strong/durum flours +, soft AP −.
+//   macroKey  density used by nutrition.js (protein varies by flour).
+//
+// Grind is a milling fineness, NOT the same axis as strength: a 00 can be soft
+// (pizza) or strong (manitoba) or durum (grano duro). The label carries the grind;
+// `strength`/`protein` carry the science.
+// ============================================================================
+export const FLOURS = [
+  { id: "ap",      label: "All-purpose",     grind: "medium grind",      protein: 10.5, strength: 0.85, absorb: -2, macroKey: "flourAP",
+    note: "Soft-ish, lower-gluten: a tenderer, less chewy crumb that drinks less water." },
+  { id: "bread",   label: "Bread flour",     grind: "medium-fine grind", protein: 12.5, strength: 1.0,  absorb: 0,  macroKey: "flourBread",
+    note: "The baseline strong wheat — the recipe is tuned around this." },
+  { id: "strong",  label: "Strong 00",       grind: "00 · silky",        protein: 14.0, strength: 1.12, absorb: 2,  macroKey: "flourStrong",
+    note: "High-gluten 00 (manitoba): extra springy-chewy and thirsty, holds a bigger open crumb." },
+  { id: "durum00", label: "00 grano duro",   grind: "00 · rimacinata",   protein: 13.5, strength: 0.92, absorb: 2,  macroKey: "flourDurum",
+    note: "Finely re-milled durum (≠ coarse semola): golden, sandy-crusted, fragrant. High protein but a short, less-elastic gluten, so it chews less bouncy than the number suggests; thirsty." },
+];
+export const FLOUR_BY_ID = Object.fromEntries(FLOURS.map((f) => [f.id, f]));
+export const DEFAULT_FLOUR = "bread";
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const sat = (x) => clamp(x, 0, 1);
@@ -44,6 +82,7 @@ export function state(r) {
   const BLEND = (r.pinsaBlendPct || 0) / 100; // rice + soy flour blend (pinsa) — ~no gluten
   const folds = r.folds;             // lamination letter-folds (0–4)
   const sch = r.schIdx;              // ferment schedule 0=same-day … 3=3-day cold
+  const STR = r.flourStrength == null ? 1 : r.flourStrength; // base-flour gluten strength (bread=1)
 
   // Free water above what the flour needs to be a workable dough → the slack
   // that becomes open holes. [hydration_open_crumb]
@@ -53,8 +92,10 @@ export function state(r) {
   // it; durum semola's gluten is weaker/shorter; boiled potato starch tenderises
   // it further (the soft, moist barese/pugliese crumb); the pinsa rice/soy blend
   // carries almost no gluten at all. [gluten_development_folds],
-  // [fat_shortens_gluten], [flour_gluten]
-  const gluten = clamp((0.55 + 0.15 * folds) * (1 + 0.10 * sch) * (1 - 0.6 * DO) * (1 - 0.4 * SEM) * (1 - 0.5 * POT) * (1 - 0.6 * BLEND), 0, 2);
+  // The base flour sets the starting strength (STR): a strong/bread wheat builds a
+  // taller gluten network than a soft AP, a durum's gluten is shorter still.
+  // [fat_shortens_gluten], [flour_gluten], [flour_strength]
+  const gluten = clamp(STR * (0.55 + 0.15 * folds) * (1 + 0.10 * sch) * (1 - 0.6 * DO) * (1 - 0.4 * SEM) * (1 - 0.5 * POT) * (1 - 0.6 * BLEND), 0, 2);
 
   // Fermentation: a longer/colder schedule builds more gas and more acidity
   // (tang), even though the yeast dose drops. [fermentation_gas_tang]
@@ -69,7 +110,12 @@ export function state(r) {
   const blister = sat((H - 0.76) / 0.14);
   const friedBase = PO;
 
-  return { H, S, PO, DO, SEM, POT, BLEND, folds, sch, slack, gluten, gas, tangState, ovenSpring, blister, friedBase };
+  // Chewiness: the springy resistance of a developed gluten network — rises with
+  // gluten strength, blunted by shortening oil. A read-only consequence (not a
+  // solver target), surfaced so a flour swap's effect on chew is visible. 0..1.
+  const chewiness = clamp(sat(gluten) * (1 - 0.30 * DO), 0, 1);
+
+  return { H, S, PO, DO, SEM, POT, BLEND, folds, sch, STR, slack, gluten, gas, tangState, ovenSpring, blister, friedBase, chewiness };
 }
 
 // ============================================================================
@@ -214,7 +260,9 @@ export function deviations(recipe, base) {
 export function solveConforming(target, recipes, opts = {}) {
   const near = classify(target, recipes).recipe;
   const identity = Object.fromEntries(IDENTITY_KEYS.map((k) => [k, (near.set || near)[k]]));
-  return { ...solveWithin(target, identity, opts), style: near };
+  // opts.identity carries non-style inputs that still steer the solve (e.g. the
+  // base flour's strength), so the levers offset to hold the target within it.
+  return { ...solveWithin(target, { ...identity, ...(opts.identity || {}) }, opts), style: near };
 }
 
 // ---- LEGACY free search (identity is free; kept for reference) -------------
