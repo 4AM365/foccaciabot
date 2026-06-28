@@ -631,11 +631,13 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
     ? ""
     : ` You're on ${yt.label.toLowerCase()}, so first ${yt.note} (take it from the recipe water) until it's foamy — then carry on.`;
   // Dough oil is its own action, after the gluten is built — its own step so the
-  // timing is unambiguous, rather than tacked onto the develop bullets.
+  // timing is unambiguous. Added in stages so it doesn't slick the dough into an
+  // un-workable greasy mass before it's absorbed.
   const doughOilStep = doughOilPct > 0 ? {
-    title: "Work in the dough oil",
-    spec: `once the gluten is built · drizzle in the ${round(doughOilPct, 1)}% dough oil · mix until fully absorbed & glossy again`,
-    why: `Add the dough oil only now — after the gluten network has formed. Drizzle in the ${round(doughOilPct, 1)}% oil and mix until it's fully absorbed and the dough turns glossy and cohesive again. Adding the fat after the structure is built keeps it from coating the proteins and blunting gluten development; worked in too early it shortens the dough and weakens it.`,
+    title: "Work in the dough oil — in stages",
+    spec: `once the gluten is built · add the ${round(doughOilPct, 1)}% dough oil in 2–3 parts · let each be absorbed before the next · finish glossy`,
+    why: `Add the dough oil only after the gluten network has formed — but in 2–3 additions, not all at once. Dumped in together the oil slicks the dough into a greasy mass that slides on the hook and won't come together; added a little at a time, each part is taken up before the next and the dough comes back glossy and cohesive each round, so it's never a sticky fight. Keeping the fat until after the structure is built stops it coating the proteins and blunting gluten development; worked in too early it shortens the dough and weakens it.`,
+    more: `On a slack, hand-worked dough you can instead drizzle the oil in over the first stretch-and-fold or two — the folds carry it in without the stickiness.`,
   } : null;
   const handling = hydration >= 84 ? "very slack and glossy — work it with wet hands"
     : hydration >= 76 ? "slack but cohesive" : "supple and easy to handle";
@@ -650,21 +652,22 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   }
 
   if (express) {
-    steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F / 35–38°C) + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar · rest 20 min · then salt`,
-      why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here.${bloom}`,
+    steps.push({ title: "Fermentolyse — warm", spec: `disperse the yeast (instant through the dry flour · active/fresh dissolved in the water) · ALL flour + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar + WARM water (95–100°F / 35–38°C), holding back a splash for the salt · rest 20 min · hold the salt`,
+      why: `On a 2-hour clock you want fermentation from minute one — and the yeast evenly through it. Disperse the yeast first (instant into the dry flour; active/fresh dissolved in the warm water), then mix everything but the salt and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water wakes the dispersed yeast immediately. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here; reserve a splash of the water to carry it in.${bloom}`,
       more: `Aim to finish the dough around ${ddt} — warm, so it drives.` });
-    steps.push({ title: "Mix & develop", spec: `dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
-      why: `Add the salt now, then develop a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.`,
+    steps.push({ title: "Mix & develop", spec: `dissolve the salt in the reserved splash of water · add · dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
+      why: `Add the salt now — dissolved in the reserved splash so it disperses evenly rather than sprinkled dry onto a developing dough — then develop a moderate, cohesive gluten net, enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.`,
       more: `Watch the temperature: glossy and clearing the bowl, not over-beaten past ~28°C/82°F. Friction heats a fast dough quickly.` });
     if (doughOilStep) steps.push(doughOilStep);
     steps.push({ title: "Warm bulk + oiled folds — the 1 hr rise", spec: `${sch.temp} · ${folds > 0 ? `${folds} oiled letter-fold${folds > 1 ? "s" : ""}` : "2 plain folds"} at 20 & 40 min · keep it covered`,
       why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. Keep the bowl covered between folds so the surface doesn't skin. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."}`,
       more: `Pull it when it's puffy and jiggly with a bubble or two showing — readiness rules, not the clock; give it 15–20 min more if it's sluggish.` });
   } else {
-    steps.push({ title: "Autolyse", spec: `ALL flour + all dough water (${coolWaterStr}) · mix to shaggy · cover · rest 30–45 min`,
-      why: `Mix flour and water to a shaggy mass with no dry flour, cover, and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Cover it so the top can't dry. Hold yeast and salt for now.${bloom} Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.` });
-    steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}`,
-      why: `Work in the yeast first, then the salt (added last so it doesn't fight the yeast or over-tighten early). Build a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry.`,
+    steps.push({ title: "Fermentolyse — cool", spec: `disperse the yeast (instant through the dry flour · active/fresh dissolved in the water) · ALL flour + yeast + the dough water (${coolWaterStr}), holding back a splash for the salt · mix to shaggy · cover · rest 30–45 min · hold the salt`,
+      why: `Get the yeast evenly through the dough *before* it stiffens — that's the fix for clumpy, uneven yeast. Instant stirs straight into the dry flour; active dry or fresh dissolves in the water (it's water-soluble, so it spreads as the flour hydrates). Then mix flour and water to a shaggy mass with no dry flour, cover, and rest: the flour fully hydrates and its enzymes reorganise gluten — extensibility for free with little mixing — while the dispersed yeast wakes evenly. Hold the salt out (it tightens gluten and you'd be sprinkling it onto a developed dough); reserve a splash of the water to carry it in next.${bloom} Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.`,
+      more: `Want a true (yeast-free) autolyse instead? Hold the yeast out here too, then dissolve it in the reserved splash of water and work that slurry in at the next step — a liquid disperses evenly where dry yeast clumps.` });
+    steps.push({ title: "Mix in the salt; develop", spec: `dissolve the salt in the reserved splash of water · add · dough hook · low · 6–8 min · target dough temp ${ddt}`,
+      why: `The yeast is already through the dough, so now just the salt — dissolved in the reserved splash so it disperses evenly (dry salt resists distributing into a developed dough; in solution it folds straight in). Then develop a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry. Salt comes in now, not at the fermentolyse, so it doesn't tighten the gluten while it hydrates.`,
       more: `Finishing near ${ddt} sets a controlled, even cold ferment rather than a runaway one.` });
     if (doughOilStep) steps.push(doughOilStep);
     steps.push({ title: "Bulk start + strength folds", spec: "3–4 coil/letter folds · 30 min apart · ~2 hr warm, covered",
@@ -733,9 +736,9 @@ const STEP_PHASE = {
   "Cook & rice the potato — ahead of time": "mix",
   "Fermentolyse — warm": "hydrate",
   "Mix & develop": "mix",
-  "Autolyse": "hydrate",
-  "Mix in yeast + salt; develop": "mix",
-  "Work in the dough oil": "mix",
+  "Fermentolyse — cool": "hydrate",
+  "Mix in the salt; develop": "mix",
+  "Work in the dough oil — in stages": "mix",
   "Warm bulk + oiled folds — the 1 hr rise": "bulk",
   "Bulk start + strength folds": "bulk",
   "Cold fermentation": "cold",
@@ -764,8 +767,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
         { key: "cool",   label: "Cool",       clock: "~10 min",   weight: 1.3 },
       ]
     : [
-        { key: "hydrate", label: "Autolyse",  clock: "~40 min",   weight: 1.8 },
-        { key: "mix",    label: "Mix+develop", clock: "~10 min",  weight: 1.1 },
+        { key: "hydrate", label: "Fermentolyse", clock: "~40 min", weight: 1.8 },
+        { key: "mix",    label: "Salt+develop", clock: "~10 min", weight: 1.1 },
         { key: "bulk",   label: "Bulk+folds", clock: "~2 hr",     weight: 2.6 },
         { key: "cold",   label: "Cold ferment", clock: sch.cold,  weight: 5 },
         ...(folds > 0 ? [{ key: "laminate", label: "Laminate", clock: "~20 min", weight: 1.5 }] : []),
@@ -778,7 +781,7 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
 
   // The dough's own backbone, one label per phase.
   const spine = {
-    hydrate:  express ? "Fermentolyse" : "Autolyse",
+    hydrate:  "Fermentolyse",
     mix:      "Develop",
     bulk:     express ? "Warm rise + folds" : "Bulk + strength folds",
     cold:     "Cold ferment",
@@ -1099,22 +1102,14 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const yeastItems = [ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)), ...(v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [])];
   const doughOilItem = doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : [];
   const phaseIng = {
-    // hydrate = the autolyse/fermentolyse bowl (flour + water; warm with yeast for
-    // express). mix = what's worked in afterward, during develop.
-    hydrate: express
-      ? [{ label: "main bowl", items: [...flourItems, ...yeastItems, ing("Water, warm ~95–100°F", round(v.water))] }]
-      : [{ label: "autolyse bowl", items: [...flourItems, ing("Water", round(v.water))] }],
-    mix: express
-      ? [
-          ...(potatoItem.length ? [{ label: "work in", items: potatoItem }] : []),
-          { label: "salt in last", items: [ing("Salt", round(v.salt, 1))] },
-          ...(doughOilItem.length ? [{ label: "then the oil", items: doughOilItem }] : []),
-        ]
-      : [
-          { label: "then work in", items: [...yeastItems, ...potatoItem] },
-          { label: "salt in last", items: [ing("Salt", round(v.salt, 1))] },
-          ...(doughOilItem.length ? [{ label: "oil after gluten forms", items: doughOilItem }] : []),
-        ],
+    // hydrate = the fermentolyse bowl: flour + the dispersed yeast + water (warm
+    // for express), salt held back. mix = what's worked in afterward, at develop.
+    hydrate: [{ label: "fermentolyse bowl", items: [...flourItems, ...yeastItems, ing(express ? "Water, warm ~95–100°F" : "Water (hold a splash back)", round(v.water))] }],
+    mix: [
+      ...(potatoItem.length ? [{ label: "work in", items: potatoItem }] : []),
+      { label: "salt, dissolved in the reserved splash", items: [ing("Salt", round(v.salt, 1))] },
+      ...(doughOilItem.length ? [{ label: "oil after gluten forms, in stages", items: doughOilItem }] : []),
+    ],
     ...(v.foldOil > 0 ? { [express ? "bulk" : "laminate"]: [{ items: [ing("Fold oil", round(v.foldOil))] }] } : {}),
     pan: [{ items: [ing("Pan oil", round(v.panOil))] }],
     dimple: [
