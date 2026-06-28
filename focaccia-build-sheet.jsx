@@ -627,9 +627,17 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
     ? `~${waterTempF}°F / ${Math.round((waterTempF - 32) * 5 / 9)}°C`
     : "cool, ~60–70°F / 16–21°C";
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
-  const bloom = yeastType === "instant"
-    ? ""
-    : ` You're on ${yt.label.toLowerCase()}, so first ${yt.note} (take it from the recipe water) until it's foamy — then carry on.`;
+  // Proof the yeast first — prove it's alive before committing a whole bake to it,
+  // and (being a liquid) it then disperses evenly. Warm water is load-bearing:
+  // cool-water rehydration leaks glutathione that slackens the dough (Cauvain).
+  const proofStep = {
+    title: "Proof the yeast — prove it's alive",
+    spec: `warm a splash of the recipe water to ~100–110°F / 38–43°C (≈5× the yeast's weight) · stir in the yeast + a pinch of sugar (or flour) to feed it · wait 5–10 min for a foamy, creamy head`,
+    why: `Before it goes near the flour, make sure the yeast is alive: rehydrate it in about five times its weight of warm water with a pinch of sugar to feed it (Cauvain), cover, and wait 5–10 min. A foamy, creamy head means it's active — no head means it's dead, so bin it and start with fresh yeast rather than waste the bake. Use WARM water, not cold: in cool water the cells recover poorly and leak glutathione, a reducing agent that slackens the dough and weakens the gluten (Cauvain) — the same thing that turns a dough to soup. And not hot: above ~120°F / 50°C starts killing it. The proofed yeast-water then goes into the fermentolyse, where (being a liquid) it also spreads evenly through the dough.`,
+    more: yeastType === "instant"
+      ? `Instant yeast is reliable and can skip this — stirred straight through the dry flour at the fermentolyse — but proof it the same way if the packet's been open a while or you just want to be sure.`
+      : `For ${yt.label.toLowerCase()} this isn't optional anyway — it's the proper rehydration step, so the proof comes free.`,
+  };
   // Dough oil is its own action, after the gluten is built — its own step so the
   // timing is unambiguous. Added in stages so it doesn't slick the dough into an
   // un-workable greasy mass before it's absorbed.
@@ -651,10 +659,12 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
       more: `Boiled potato is ~75–80% water, and that moisture is already counted in the hydration shown here. Trim any green, sprouts or black bruise-spots before cooking — boiling won't remove their bitterness. Work the cooled riced potato into the dough as it develops, after the flour and water have come together.` });
   }
 
+  steps.push(proofStep);
+
   if (express) {
-    steps.push({ title: "Fermentolyse — warm", spec: `disperse the yeast (instant through the dry flour · active/fresh dissolved in the water) · ALL flour + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar + WARM water (95–100°F / 35–38°C), holding back a splash for the salt · rest 20 min · hold the salt`,
-      why: `On a 2-hour clock you want fermentation from minute one — and the yeast evenly through it. Disperse the yeast first (instant into the dry flour; active/fresh dissolved in the warm water), then mix everything but the salt and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water wakes the dispersed yeast immediately. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here; reserve a splash of the water to carry it in.${bloom}`,
-      more: `Aim to finish the dough around ${ddt} — warm, so it drives.` });
+    steps.push({ title: "Fermentolyse — warm", spec: `add the proofed yeast-water · ALL flour + sugar + the rest of the WARM water (95–100°F / 35–38°C), holding back a splash for the salt · rest 20 min · hold the salt`,
+      why: `On a 2-hour clock you want fermentation from minute one — with the yeast already proven and, as a liquid, evenly spread. Stir the proofed yeast-water into the flour and the rest of the warm water (everything but the salt) and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water keeps the yeast driving. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here; reserve a splash of water to carry it in.`,
+      more: `Aim to finish the dough around ${ddt} — warm, so it drives. Skipping the proof with instant? Stir it straight through the dry flour instead.` });
     steps.push({ title: "Mix & develop", spec: `dissolve the salt in the reserved splash of water · add · dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
       why: `Add the salt now — dissolved in the reserved splash so it disperses evenly rather than sprinkled dry onto a developing dough — then develop a moderate, cohesive gluten net, enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.`,
       more: `Watch the temperature: glossy and clearing the bowl, not over-beaten past ~28°C/82°F. Friction heats a fast dough quickly.` });
@@ -663,9 +673,9 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
       why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. Keep the bowl covered between folds so the surface doesn't skin. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."}`,
       more: `Pull it when it's puffy and jiggly with a bubble or two showing — readiness rules, not the clock; give it 15–20 min more if it's sluggish.` });
   } else {
-    steps.push({ title: "Fermentolyse — cool", spec: `disperse the yeast (instant through the dry flour · active/fresh dissolved in the water) · ALL flour + yeast + the dough water (${coolWaterStr}), holding back a splash for the salt · mix to shaggy · cover · rest 30–45 min · hold the salt`,
-      why: `Get the yeast evenly through the dough *before* it stiffens — that's the fix for clumpy, uneven yeast. Instant stirs straight into the dry flour; active dry or fresh dissolves in the water (it's water-soluble, so it spreads as the flour hydrates). Then mix flour and water to a shaggy mass with no dry flour, cover, and rest: the flour fully hydrates and its enzymes reorganise gluten — extensibility for free with little mixing — while the dispersed yeast wakes evenly. Hold the salt out (it tightens gluten and you'd be sprinkling it onto a developed dough); reserve a splash of the water to carry it in next.${bloom} Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.`,
-      more: `Want a true (yeast-free) autolyse instead? Hold the yeast out here too, then dissolve it in the reserved splash of water and work that slurry in at the next step — a liquid disperses evenly where dry yeast clumps.` });
+    steps.push({ title: "Fermentolyse — cool", spec: `add the proofed yeast-water · ALL flour + the rest of the dough water (${coolWaterStr}), holding back a splash for the salt · mix to shaggy · cover · rest 30–45 min · hold the salt`,
+      why: `The proofed yeast-water goes in now — already alive and, being a liquid, evenly spread through the dough (the fix for clumpy, uneven yeast). Mix flour and water to a shaggy mass with no dry flour, cover, and rest: the flour fully hydrates and its enzymes reorganise gluten — extensibility for free with little mixing. Hold the salt out (it tightens gluten, and you'd be sprinkling it onto a developed dough); reserve a splash of the water to carry it in next. Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.`,
+      more: `Confident instant yeast and skipping the proof? Stir it straight through the dry flour instead — it disperses fine that way too. Or keep a true yeast-free autolyse and add the dissolved yeast at the next step.` });
     steps.push({ title: "Mix in the salt; develop", spec: `dissolve the salt in the reserved splash of water · add · dough hook · low · 6–8 min · target dough temp ${ddt}`,
       why: `The yeast is already through the dough, so now just the salt — dissolved in the reserved splash so it disperses evenly (dry salt resists distributing into a developed dough; in solution it folds straight in). Then develop a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry. Salt comes in now, not at the fermentolyse, so it doesn't tighten the gluten while it hydrates.`,
       more: `Finishing near ${ddt} sets a controlled, even cold ferment rather than a runaway one.` });
@@ -734,6 +744,7 @@ const PHASE_ORDER = ["hydrate", "mix", "bulk", "cold", "laminate", "pan", "proof
 // — they ride their own topping lanes.
 const STEP_PHASE = {
   "Cook & rice the potato — ahead of time": "mix",
+  "Proof the yeast — prove it's alive": "hydrate",
   "Fermentolyse — warm": "hydrate",
   "Mix & develop": "mix",
   "Fermentolyse — cool": "hydrate",
@@ -757,7 +768,7 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
 
   const phases = express
     ? [
-        { key: "hydrate", label: "Fermentolyse", clock: "~25 min", weight: 1.6 },
+        { key: "hydrate", label: "Proof+ferment", clock: "~30 min", weight: 1.6 },
         { key: "mix",    label: "Develop",    clock: "~8 min",    weight: 1 },
         { key: "bulk",   label: "Warm rise",  clock: "~1 hr",     weight: 3 },
         { key: "pan",    label: "Pan",        clock: "20–30 min", weight: 1.4 },
@@ -767,7 +778,7 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
         { key: "cool",   label: "Cool",       clock: "~10 min",   weight: 1.3 },
       ]
     : [
-        { key: "hydrate", label: "Fermentolyse", clock: "~40 min", weight: 1.8 },
+        { key: "hydrate", label: "Proof+ferment", clock: "~45 min", weight: 1.8 },
         { key: "mix",    label: "Salt+develop", clock: "~10 min", weight: 1.1 },
         { key: "bulk",   label: "Bulk+folds", clock: "~2 hr",     weight: 2.6 },
         { key: "cold",   label: "Cold ferment", clock: sch.cold,  weight: 5 },
@@ -794,9 +805,11 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
   };
 
   const tracks = [];
-  // Non-instant yeast must be bloomed before it can go in — a real "do first".
+  // Active dry / fresh must be proofed (rehydrated) before it goes in — a real
+  // "do first". Instant can skip it, so no mandatory lane (the proof step still
+  // offers it as optional).
   if (yeastType !== "instant") {
-    tracks.push({ id: "_yeast", icon: "🫧", label: "Yeast", plan: { phase: "hydrate", do: `Bloom the ${yt.label.toLowerCase()} in warm water`, dep: "must foam before it goes in — proves it's alive" } });
+    tracks.push({ id: "_yeast", icon: "🫧", label: "Yeast", plan: { phase: "hydrate", do: `Proof the ${yt.label.toLowerCase()} in warm water`, dep: "must foam before it goes in — proves it's alive" } });
   }
   toppings.forEach((t) => {
     let plan = TOPPING_PLAN[t.id];
@@ -1102,9 +1115,12 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const yeastItems = [ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)), ...(v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [])];
   const doughOilItem = doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : [];
   const phaseIng = {
-    // hydrate = the fermentolyse bowl: flour + the dispersed yeast + water (warm
-    // for express), salt held back. mix = what's worked in afterward, at develop.
-    hydrate: [{ label: "fermentolyse bowl", items: [...flourItems, ...yeastItems, ing(express ? "Water, warm ~95–100°F" : "Water (hold a splash back)", round(v.water))] }],
+    // hydrate = proof the yeast in a warm cup, then the fermentolyse bowl: flour +
+    // water (warm for express), salt held back. mix = worked in afterward, at develop.
+    hydrate: [
+      { label: "proof · a warm cup", items: yeastItems },
+      { label: "fermentolyse bowl", items: [...flourItems, ing(express ? "Water, warm ~95–100°F" : "Water (hold a splash back)", round(v.water))] },
+    ],
     mix: [
       ...(potatoItem.length ? [{ label: "work in", items: potatoItem }] : []),
       { label: "salt, dissolved in the reserved splash", items: [ing("Salt", round(v.salt, 1))] },
