@@ -101,6 +101,12 @@ const BRINE_WATER = 5;   // salamoia — poured into the dimples
 const BRINE_OIL = 5;     // salamoia oil
 const BRINE_SALT = 0.8;  // fine salt dissolved into the salamoia
 
+// Water carved out of the dough water for two jobs, then rejoined — so total
+// hydration is unchanged, the water is just staged. Both are explicit gram
+// reserves shown in the steps.
+const YEAST_TEST_WATER_X = 5;  // warm water for the yeast test = 5× the yeast weight (Cauvain: "reconstituted in five times its own weight of warm water"). lazy: one knob — set to 0.5 for a half-weight slurry if you really want it.
+const SALT_WATER_X = 4;        // water to dissolve the salt for even distribution = 4× salt weight (salt dissolves ~1:2.8, so 4× clears it with margin)
+
 // Yeast forms and their dosing relative to instant (IDY).
 const YEAST_TYPES = {
   instant: { label: "Instant yeast (IDY)", factor: 1, note: "added dry, straight into the flour" },
@@ -618,7 +624,7 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // Process generator — steps adapt to schedule, lamination, hydration, yeast and
 // toppings. Each step shows its spec as bullets; `why` + `more` reveal on tap.
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato, waterTempF, proof }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato, waterTempF, proof, water }) {
   const express = schIdx === 0;
   const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
   // Dough-water temperature. When the kitchen panel is on, use its DDT-solved
@@ -627,16 +633,16 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
     ? `~${waterTempF}°F / ${Math.round((waterTempF - 32) * 5 / 9)}°C`
     : "cool, ~60–70°F / 16–21°C";
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
-  // Proof the yeast first — prove it's alive before committing a whole bake to it,
-  // and (being a liquid) it then disperses evenly. Warm water is load-bearing:
+  const w = water || { bloom: 0, salt: 0, main: 0, yeast: 0, saltMass: 0 };
+  // TEST YEAST — its own block: a quantified bloom that proves the yeast is alive.
+  // The warm water is carved out of the dough water (5× the yeast weight, Cauvain)
+  // and rejoins it at the fermentolyse, so hydration is unchanged. Warm not cold:
   // cool-water rehydration leaks glutathione that slackens the dough (Cauvain).
-  const proofStep = {
-    title: "Proof the yeast — prove it's alive",
-    spec: `warm a splash of the recipe water to ~100–110°F / 38–43°C (≈5× the yeast's weight) · stir in the yeast + a pinch of sugar (or flour) to feed it · wait 5–10 min for a foamy, creamy head`,
-    why: `Before it goes near the flour, make sure the yeast is alive: rehydrate it in about five times its weight of warm water with a pinch of sugar to feed it (Cauvain), cover, and wait 5–10 min. A foamy, creamy head means it's active — no head means it's dead, so bin it and start with fresh yeast rather than waste the bake. Use WARM water, not cold: in cool water the cells recover poorly and leak glutathione, a reducing agent that slackens the dough and weakens the gluten (Cauvain) — the same thing that turns a dough to soup. And not hot: above ~120°F / 50°C starts killing it. The proofed yeast-water then goes into the fermentolyse, where (being a liquid) it also spreads evenly through the dough.`,
-    more: yeastType === "instant"
-      ? `You've opted to proof instant — smart for an older packet or peace of mind. Untick "Proof the yeast" to skip it and stir instant straight through the dry flour instead.`
-      : `For ${yt.label.toLowerCase()} this is the proper rehydration step, not just a viability check — so it's on by default.`,
+  const testYeastStep = {
+    title: "Test the yeast",
+    spec: `measure ${w.bloom}g water (5× the ${w.yeast}g yeast) from the dough water · heat to 100–110°F / 38–43°C · stir in the ${w.yeast}g yeast + 1g (¼ tsp) sugar · leave 5–10 min`,
+    why: `Prove the yeast is alive before you commit flour to it. Measure ${w.bloom}g of warm water — five times the ${w.yeast}g of yeast (Cauvain) — at 100–110°F / 38–43°C, stir in the yeast and 1g of sugar to feed it, and leave it 5–10 min. PASS: a foamy, creamy head ½–1 cm thick. FAIL: flat and still after 10 min — the yeast is dead; throw it out and open fresh, you've spent 10 minutes instead of a whole bake. The water must be WARM, not cold: cold-rehydrated yeast recovers poorly and leaks glutathione, a reducing agent that slackens the dough and weakens the gluten (Cauvain) — the same fault that turns a dough to soup. Above ~120°F / 50°C starts killing it, so don't overshoot.`,
+    more: `This ${w.bloom}g is taken from the dough water and poured back in with the yeast at the fermentolyse, so it's not extra water — total hydration is unchanged. ${yeastType === "instant" ? `Instant doesn't strictly need this; untick "Proof the yeast" to skip it and stir instant straight through the dry flour instead.` : `For ${yt.label.toLowerCase()} this doubles as the required rehydration step.`}`,
   };
   // Dough oil is its own action, after the gluten is built — its own step so the
   // timing is unambiguous. Added in stages so it doesn't slick the dough into an
@@ -659,32 +665,32 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
       more: `Boiled potato is ~75–80% water, and that moisture is already counted in the hydration shown here. Trim any green, sprouts or black bruise-spots before cooking — boiling won't remove their bitterness. Work the cooled riced potato into the dough as it develops, after the flour and water have come together.` });
   }
 
-  if (proof) steps.push(proofStep);
+  if (proof) steps.push(testYeastStep);
 
-  // How the yeast enters the fermentolyse: pre-proofed (as a liquid) or dispersed
-  // dry through the flour.
-  const yeastClause = proof ? "add the proofed yeast-water" : "stir the yeast through the dry flour";
+  // How the yeast enters the fermentolyse: pre-proofed (poured in with its bloom
+  // water) or dispersed dry through the flour.
+  const yeastClause = proof ? `pour in the bloomed yeast (its ${w.bloom}g water rejoins here)` : `stir the ${w.yeast}g yeast through the dry flour`;
   const yeastWhy = proof
-    ? "The proofed yeast-water goes in now — already alive and, being a liquid, evenly spread through the dough (the fix for clumpy yeast)."
-    : "Stir the yeast through the dry flour first so it ends up evenly dispersed, then add the water.";
+    ? `Pour in the bloomed yeast-water — already proven alive and, as a liquid, evenly spread through the dough (the fix for clumpy yeast). Its ${w.bloom}g rejoins the dough here, so hydration is back to plan.`
+    : `Stir the ${w.yeast}g yeast through the dry flour first so it ends up evenly dispersed, then add the water.`;
 
   if (express) {
-    steps.push({ title: "Fermentolyse — warm", spec: `${yeastClause} · ALL flour${proof ? "" : " + yeast"} + sugar + WARM water (95–100°F / 35–38°C), holding back a splash for the salt · rest 20 min · hold the salt`,
-      why: `On a 2-hour clock you want fermentation from minute one${proof ? ", with the yeast already proven and evenly spread" : ""}. ${yeastWhy} Mix everything but the salt and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water keeps the yeast driving. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here; reserve a splash of water to carry it in.`,
+    steps.push({ title: "Fermentolyse — warm", spec: `${yeastClause} · ALL flour + ${w.main}g WARM water (95–100°F / 35–38°C) + sugar · ${w.salt}g held back for the salt · rest 20 min · hold the salt`,
+      why: `On a 2-hour clock you want fermentation from minute one${proof ? ", with the yeast already proven and evenly spread" : ""}. ${yeastWhy} Mix everything but the salt — ${w.main}g of the warm water now (the dough water less the ${w.salt}g reserved for the salt${proof ? `, since the yeast's ${w.bloom}g came back in with it` : ""}) — and rest 20 min, covered: the flour fully hydrates and the warm water keeps the yeast driving. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here.`,
       more: `Aim to finish the dough around ${ddt} — warm, so it drives.` });
-    steps.push({ title: "Mix & develop", spec: `dissolve the salt in the reserved splash of water · add · dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
-      why: `Add the salt now — dissolved in the reserved splash so it disperses evenly rather than sprinkled dry onto a developing dough — then develop a moderate, cohesive gluten net, enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.`,
+    steps.push({ title: "Mix & develop", spec: `dissolve the ${w.saltMass}g salt in the reserved ${w.salt}g water · add · dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
+      why: `Add the salt now — dissolved in the reserved ${w.salt}g of water (4× its weight, enough to dissolve it) so it disperses evenly rather than sprinkled dry onto a developing dough — then develop a moderate, cohesive gluten net, enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.`,
       more: `Watch the temperature: glossy and clearing the bowl, not over-beaten past ~28°C/82°F. Friction heats a fast dough quickly.` });
     if (doughOilStep) steps.push(doughOilStep);
     steps.push({ title: "Warm bulk + oiled folds — the 1 hr rise", spec: `${sch.temp} · ${folds > 0 ? `${folds} oiled letter-fold${folds > 1 ? "s" : ""}` : "2 plain folds"} at 20 & 40 min · keep it covered`,
       why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. Keep the bowl covered between folds so the surface doesn't skin. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."}`,
       more: `Pull it when it's puffy and jiggly with a bubble or two showing — readiness rules, not the clock; give it 15–20 min more if it's sluggish.` });
   } else {
-    steps.push({ title: "Fermentolyse — cool", spec: `${yeastClause} · ALL flour${proof ? "" : " + yeast"} + the dough water (${coolWaterStr}), holding back a splash for the salt · mix to shaggy · cover · rest 30–45 min · hold the salt`,
-      why: `${yeastWhy} Mix flour and water to a shaggy mass with no dry flour, cover, and rest: the flour fully hydrates and its enzymes reorganise gluten — extensibility for free with little mixing. Hold the salt out (it tightens gluten, and you'd be sprinkling it onto a developed dough); reserve a splash of the water to carry it in next. Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.`,
+    steps.push({ title: "Fermentolyse — cool", spec: `${yeastClause} · ALL flour + ${w.main}g water (${coolWaterStr}) · ${w.salt}g held back for the salt · mix to shaggy · cover · rest 30–45 min · hold the salt`,
+      why: `${yeastWhy} Mix flour and ${w.main}g of the water (the dough water less the ${w.salt}g reserved for the salt${proof ? `, with the yeast's ${w.bloom}g already back in` : ""}) to a shaggy mass with no dry flour, cover, and rest: the flour fully hydrates and its enzymes reorganise gluten — extensibility for free with little mixing. Hold the salt out (it tightens gluten, and you'd be sprinkling it onto a developed dough). Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.`,
       more: proof ? `A true (yeast-free) autolyse is the alternative: hold the yeast out, then add the dissolved yeast at the next step.` : `Prefer to bloom it and check it's alive first? Tick "Proof the yeast" above.` });
-    steps.push({ title: "Mix in the salt; develop", spec: `dissolve the salt in the reserved splash of water · add · dough hook · low · 6–8 min · target dough temp ${ddt}`,
-      why: `The yeast is already through the dough, so now just the salt — dissolved in the reserved splash so it disperses evenly (dry salt resists distributing into a developed dough; in solution it folds straight in). Then develop a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry. Salt comes in now, not at the fermentolyse, so it doesn't tighten the gluten while it hydrates.`,
+    steps.push({ title: "Mix in the salt; develop", spec: `dissolve the ${w.saltMass}g salt in the reserved ${w.salt}g water · add · dough hook · low · 6–8 min · target dough temp ${ddt}`,
+      why: `The yeast is already through the dough, so now just the salt — dissolved in the reserved ${w.salt}g of water (4× its weight, enough to dissolve it) so it disperses evenly (dry salt resists distributing into a developed dough; in solution it folds straight in). Then develop a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry. Salt comes in now, not at the fermentolyse, so it doesn't tighten the gluten while it hydrates.`,
       more: `Finishing near ${ddt} sets a controlled, even cold ferment rather than a runaway one.` });
     if (doughOilStep) steps.push(doughOilStep);
     steps.push({ title: "Bulk start + strength folds", spec: "3–4 coil/letter folds · 30 min apart · ~2 hr warm, covered",
@@ -744,14 +750,14 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
 // re-orders the *prep* into a single dependency-aware line. The long ferment is
 // the key insight here: that's the window to roast, toast, infuse and wilt.
 // ---------------------------------------------------------------------------
-const PHASE_ORDER = ["hydrate", "mix", "bulk", "cold", "laminate", "pan", "proof", "dimple", "bake", "cool"];
+const PHASE_ORDER = ["test", "hydrate", "mix", "bulk", "cold", "laminate", "pan", "proof", "dimple", "bake", "cool"];
 
 // Maps each process step (by title) onto its timeline phase, so the gantt block
 // carries the step's bullets + "why". Topping-prep steps are intentionally absent
 // — they ride their own topping lanes.
 const STEP_PHASE = {
   "Cook & rice the potato — ahead of time": "mix",
-  "Proof the yeast — prove it's alive": "hydrate",
+  "Test the yeast": "test",
   "Fermentolyse — warm": "hydrate",
   "Mix & develop": "mix",
   "Fermentolyse — cool": "hydrate",
@@ -768,15 +774,15 @@ const STEP_PHASE = {
   "Cool — out of the pan": "cool",
 };
 
-function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato, proof }) {
+function buildTimeline({ sch, schIdx, folds, toppings, tomato, proof }) {
   const express = schIdx === 0;
-  const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
   const waitPhase = express ? "bulk" : "cold"; // where make-ahead prep lives
-  const hydrateLabel = proof ? "Proof+ferment" : "Fermentolyse";
+  const testPhase = proof ? [{ key: "test", label: "Test yeast", clock: "~10 min", weight: 1 }] : [];
 
   const phases = express
     ? [
-        { key: "hydrate", label: hydrateLabel, clock: proof ? "~30 min" : "~22 min", weight: 1.6 },
+        ...testPhase,
+        { key: "hydrate", label: "Fermentolyse", clock: "~22 min", weight: 1.6 },
         { key: "mix",    label: "Develop",    clock: "~8 min",    weight: 1 },
         { key: "bulk",   label: "Warm rise",  clock: "~1 hr",     weight: 3 },
         { key: "pan",    label: "Pan",        clock: "20–30 min", weight: 1.4 },
@@ -786,7 +792,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato, proof 
         { key: "cool",   label: "Cool",       clock: "~10 min",   weight: 1.3 },
       ]
     : [
-        { key: "hydrate", label: hydrateLabel, clock: proof ? "~45 min" : "~40 min", weight: 1.8 },
+        ...testPhase,
+        { key: "hydrate", label: "Fermentolyse", clock: "~40 min", weight: 1.8 },
         { key: "mix",    label: "Salt+develop", clock: "~10 min", weight: 1.1 },
         { key: "bulk",   label: "Bulk+folds", clock: "~2 hr",     weight: 2.6 },
         { key: "cold",   label: "Cold ferment", clock: sch.cold,  weight: 5 },
@@ -800,7 +807,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato, proof 
 
   // The dough's own backbone, one label per phase.
   const spine = {
-    hydrate:  proof ? "Proof + fermentolyse" : "Fermentolyse",
+    test:     "Test the yeast",
+    hydrate:  "Fermentolyse",
     mix:      "Develop",
     bulk:     express ? "Warm rise + folds" : "Bulk + strength folds",
     cold:     "Cold ferment",
@@ -813,12 +821,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato, proof 
   };
 
   const tracks = [];
-  // Active dry / fresh must be proofed (rehydrated) before it goes in — a real
-  // "do first". Instant can skip it, so no mandatory lane (the proof step still
-  // offers it as optional).
-  if (yeastType !== "instant") {
-    tracks.push({ id: "_yeast", icon: "🫧", label: "Yeast", plan: { phase: "hydrate", do: `Proof the ${yt.label.toLowerCase()} in warm water`, dep: "must foam before it goes in — proves it's alive" } });
-  }
+  // (No yeast lane — the Test-yeast step carries the real, quantified instruction;
+  // a lane restating "must foam before it goes in" was empty window-dressing.)
   toppings.forEach((t) => {
     let plan = TOPPING_PLAN[t.id];
     if (t.id === "tomato" && tomato && tomato.on && tomato.mode === "roast") {
@@ -1112,6 +1116,16 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     return { sem, potato, blend, breadFlour, water, salt, yeast, yeastPctEff, sugar, panOil, doughOil, foldOil, foldOilPct, brineWater, brineOil, brineSalt, doughWeight, totalOil };
   }, [f, hydrationAdj, saltPct, semolinaPct, potatoPct, pinsaBlendPct, panOilPct, doughOilPct, folds, sch, yeastType, yeastEnvFactor]);
 
+  // Water plan: the dough water staged into three explicit portions that sum back
+  // to v.water — a warm splash for the yeast test (rejoins when poured in), a
+  // splash to dissolve the salt, and the rest into the fermentolyse bowl.
+  const waterPlan = useMemo(() => {
+    const bloom = doProof ? round(YEAST_TEST_WATER_X * v.yeast, 1) : 0;
+    const saltW = round(SALT_WATER_X * v.salt, 1);
+    const main = round(Math.max(0, v.water - bloom - saltW), 1);
+    return { bloom, salt: saltW, main, yeast: round(v.yeast, 1), saltMass: round(v.salt, 1) };
+  }, [doProof, v.yeast, v.salt, v.water]);
+
   const specialDef = special ? SPECIAL_BY_ID[special] : null;
   const specialRecipe = useMemo(() => specialDef ? specialDef.recipe(f) : null, [special, f]);
 
@@ -1126,20 +1140,25 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
   ];
   const potatoItem = v.potato > 0 ? [ing("Potato, cooked & riced", round(v.potato))] : [];
-  const yeastItems = [ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)), ...(v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [])];
+  const sugarItem = v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [];
+  const yeastItem = ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2));
   const doughOilItem = doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : [];
+  // The dough water staged: warm cup for the yeast test, the bowl, and the salt's
+  // dissolving splash — three portions that sum to the total.
   const phaseIng = {
-    // hydrate = (optionally) proof the yeast in a warm cup, then the fermentolyse
-    // bowl. If not proofing, the yeast is dispersed dry into the flour bowl.
-    hydrate: doProof
-      ? [
-          { label: "proof · a warm cup", items: yeastItems },
-          { label: "fermentolyse bowl", items: [...flourItems, ing(express ? "Water, warm ~95–100°F" : "Water (hold a splash back)", round(v.water))] },
-        ]
-      : [{ label: "fermentolyse bowl", items: [...flourItems, ...yeastItems, ing(express ? "Water, warm ~95–100°F" : "Water (hold a splash back)", round(v.water))] }],
+    ...(doProof ? { test: [{ label: "warm cup · 100–110°F", items: [yeastItem, ing("Water, warm (5× yeast)", waterPlan.bloom), ing("Sugar, to feed", 1)] }] } : {}),
+    hydrate: [{
+      label: doProof ? "fermentolyse bowl (+ pour in the bloomed yeast)" : "fermentolyse bowl",
+      items: [
+        ...flourItems,
+        ...(doProof ? [] : [yeastItem]),
+        ...sugarItem,
+        ing(express ? "Water, warm ~95–100°F" : "Water", waterPlan.main),
+      ],
+    }],
     mix: [
       ...(potatoItem.length ? [{ label: "work in", items: potatoItem }] : []),
-      { label: "salt, dissolved in the reserved splash", items: [ing("Salt", round(v.salt, 1))] },
+      { label: "salt, dissolved", items: [ing("Salt", waterPlan.saltMass), ing("Water (4× salt)", waterPlan.salt)] },
       ...(doughOilItem.length ? [{ label: "oil after gluten forms, in stages", items: doughOilItem }] : []),
     ],
     ...(v.foldOil > 0 ? { [express ? "bulk" : "laminate"]: [{ items: [ing("Fold oil", round(v.foldOil))] }] } : {}),
@@ -1151,8 +1170,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   };
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato }, waterTempF: envOn ? envAdj.waterTempF : null, proof: doProof }),
-    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, potatoPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f, v.potato, envOn, envAdj, doProof]);
+  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato }, waterTempF: envOn ? envAdj.waterTempF : null, proof: doProof, water: waterPlan }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, potatoPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f, v.potato, envOn, envAdj, doProof, waterPlan]);
   const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato, proof: doProof }),
     [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode, doProof]);
   // Process steps bucketed onto their timeline phase, so each gantt block shows
