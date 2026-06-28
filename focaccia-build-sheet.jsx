@@ -630,12 +630,13 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   const bloom = yeastType === "instant"
     ? ""
     : ` You're on ${yt.label.toLowerCase()}, so first ${yt.note} (take it from the recipe water) until it's foamy — then carry on.`;
-  const oilNote = doughOilPct > 0
-    ? ` Once the dough is cohesive, drizzle in the ${round(doughOilPct, 1)}% dough oil and mix until it's fully absorbed and glossy again — adding it after the gluten has formed keeps the oil from coating the proteins and blunting development.`
-    : "";
-  // Short form for the always-visible spec line so the dough oil shows even in
-  // Terse mode (where the `why` text — and the full oilNote — is hidden).
-  const oilSpecNote = doughOilPct > 0 ? ` · then work in the ${round(doughOilPct, 1)}% dough oil till absorbed` : "";
+  // Dough oil is its own action, after the gluten is built — its own step so the
+  // timing is unambiguous, rather than tacked onto the develop bullets.
+  const doughOilStep = doughOilPct > 0 ? {
+    title: "Work in the dough oil",
+    spec: `once the gluten is built · drizzle in the ${round(doughOilPct, 1)}% dough oil · mix until fully absorbed & glossy again`,
+    why: `Add the dough oil only now — after the gluten network has formed. Drizzle in the ${round(doughOilPct, 1)}% oil and mix until it's fully absorbed and the dough turns glossy and cohesive again. Adding the fat after the structure is built keeps it from coating the proteins and blunting gluten development; worked in too early it shortens the dough and weakens it.`,
+  } : null;
   const handling = hydration >= 84 ? "very slack and glossy — work it with wet hands"
     : hydration >= 76 ? "slack but cohesive" : "supple and easy to handle";
   const hot = panOilPct >= 10;
@@ -652,18 +653,20 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
     steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F / 35–38°C) + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar · rest 20 min · then salt`,
       why: `On a 2-hour clock you want fermentation from minute one. Mix everything but the salt with warm water and rest 20 min, covered: the flour fully hydrates (free extensibility) and the warm water wakes the yeast immediately. Hold the salt — it tightens gluten and slows yeast, blunting the fast start you need here.${bloom}`,
       more: `Aim to finish the dough around ${ddt} — warm, so it drives.` });
-    steps.push({ title: "Mix & develop", spec: `dough hook · low speed · 6–8 min · target dough temp ${ddt}${oilSpecNote}`,
-      why: `Add the salt now, then develop a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.${oilNote}`,
+    steps.push({ title: "Mix & develop", spec: `dough hook · low speed · 6–8 min · target dough temp ${ddt}`,
+      why: `Add the salt now, then develop a moderate, cohesive gluten net — enough to trap gas fast and hold the layers. At ${hydration}% the dough is ${handling}.`,
       more: `Watch the temperature: glossy and clearing the bowl, not over-beaten past ~28°C/82°F. Friction heats a fast dough quickly.` });
+    if (doughOilStep) steps.push(doughOilStep);
     steps.push({ title: "Warm bulk + oiled folds — the 1 hr rise", spec: `${sch.temp} · ${folds > 0 ? `${folds} oiled letter-fold${folds > 1 ? "s" : ""}` : "2 plain folds"} at 20 & 40 min · keep it covered`,
       why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. Keep the bowl covered between folds so the surface doesn't skin. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."}`,
       more: `Pull it when it's puffy and jiggly with a bubble or two showing — readiness rules, not the clock; give it 15–20 min more if it's sluggish.` });
   } else {
     steps.push({ title: "Autolyse", spec: `ALL flour + all dough water (${coolWaterStr}) · mix to shaggy · cover · rest 30–45 min`,
       why: `Mix flour and water to a shaggy mass with no dry flour, cover, and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Cover it so the top can't dry. Hold yeast and salt for now.${bloom} Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.` });
-    steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}${oilSpecNote}`,
-      why: `Work in the yeast first, then the salt (added last so it doesn't fight the yeast or over-tighten early). Build a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry.${oilNote}`,
+    steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}`,
+      why: `Work in the yeast first, then the salt (added last so it doesn't fight the yeast or over-tighten early). Build a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry.`,
       more: `Finishing near ${ddt} sets a controlled, even cold ferment rather than a runaway one.` });
+    if (doughOilStep) steps.push(doughOilStep);
     steps.push({ title: "Bulk start + strength folds", spec: "3–4 coil/letter folds · 30 min apart · ~2 hr warm, covered",
       why: `With wet hands, fold every 30 min over the first couple of warm hours, keeping the bowl covered between sets. Each fold re-tensions the gluten and redistributes gas and yeast food, turning a slack puddle into a structured mass.`,
       more: `Build it to roughly 30–50% risen before it goes cold — enough life to carry the long retard without exhausting.` });
@@ -721,17 +724,18 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
 // re-orders the *prep* into a single dependency-aware line. The long ferment is
 // the key insight here: that's the window to roast, toast, infuse and wilt.
 // ---------------------------------------------------------------------------
-const PHASE_ORDER = ["mix", "bulk", "cold", "laminate", "pan", "proof", "dimple", "bake", "cool"];
+const PHASE_ORDER = ["hydrate", "mix", "bulk", "cold", "laminate", "pan", "proof", "dimple", "bake", "cool"];
 
 // Maps each process step (by title) onto its timeline phase, so the gantt block
 // carries the step's bullets + "why". Topping-prep steps are intentionally absent
 // — they ride their own topping lanes.
 const STEP_PHASE = {
   "Cook & rice the potato — ahead of time": "mix",
-  "Fermentolyse — warm": "mix",
+  "Fermentolyse — warm": "hydrate",
   "Mix & develop": "mix",
-  "Autolyse": "mix",
+  "Autolyse": "hydrate",
   "Mix in yeast + salt; develop": "mix",
+  "Work in the dough oil": "mix",
   "Warm bulk + oiled folds — the 1 hr rise": "bulk",
   "Bulk start + strength folds": "bulk",
   "Cold fermentation": "cold",
@@ -750,7 +754,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
 
   const phases = express
     ? [
-        { key: "mix",    label: "Mix",        clock: "~25 min",   weight: 2 },
+        { key: "hydrate", label: "Fermentolyse", clock: "~25 min", weight: 1.6 },
+        { key: "mix",    label: "Develop",    clock: "~8 min",    weight: 1 },
         { key: "bulk",   label: "Warm rise",  clock: "~1 hr",     weight: 3 },
         { key: "pan",    label: "Pan",        clock: "20–30 min", weight: 1.4 },
         { key: "proof",  label: "Proof",      clock: sch.proof,   weight: 2.4 },
@@ -759,7 +764,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
         { key: "cool",   label: "Cool",       clock: "~10 min",   weight: 1.3 },
       ]
     : [
-        { key: "mix",    label: "Mix",        clock: "~25 min",   weight: 2 },
+        { key: "hydrate", label: "Autolyse",  clock: "~40 min",   weight: 1.8 },
+        { key: "mix",    label: "Mix+develop", clock: "~10 min",  weight: 1.1 },
         { key: "bulk",   label: "Bulk+folds", clock: "~2 hr",     weight: 2.6 },
         { key: "cold",   label: "Cold ferment", clock: sch.cold,  weight: 5 },
         ...(folds > 0 ? [{ key: "laminate", label: "Laminate", clock: "~20 min", weight: 1.5 }] : []),
@@ -772,7 +778,8 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
 
   // The dough's own backbone, one label per phase.
   const spine = {
-    mix:      express ? "Fermentolyse · develop" : "Autolyse · develop",
+    hydrate:  express ? "Fermentolyse" : "Autolyse",
+    mix:      "Develop",
     bulk:     express ? "Warm rise + folds" : "Bulk + strength folds",
     cold:     "Cold ferment",
     laminate: "Laminate",
@@ -786,7 +793,7 @@ function buildTimeline({ sch, schIdx, folds, yeastType, toppings, tomato }) {
   const tracks = [];
   // Non-instant yeast must be bloomed before it can go in — a real "do first".
   if (yeastType !== "instant") {
-    tracks.push({ id: "_yeast", icon: "🫧", label: "Yeast", plan: { phase: "mix", do: `Bloom the ${yt.label.toLowerCase()} in warm water`, dep: "must foam before it goes in — proves it's alive" } });
+    tracks.push({ id: "_yeast", icon: "🫧", label: "Yeast", plan: { phase: "hydrate", do: `Bloom the ${yt.label.toLowerCase()} in warm water`, dep: "must foam before it goes in — proves it's alive" } });
   }
   toppings.forEach((t) => {
     let plan = TOPPING_PLAN[t.id];
@@ -1087,21 +1094,26 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     ing(flourDef.label, round(v.breadFlour)),
     ...(semolinaPct > 0 ? [ing("Semolina", round(v.sem))] : []),
     ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
-    ...(v.potato > 0 ? [ing("Potato, cooked & riced", round(v.potato))] : []),
   ];
+  const potatoItem = v.potato > 0 ? [ing("Potato, cooked & riced", round(v.potato))] : [];
   const yeastItems = [ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)), ...(v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [])];
+  const doughOilItem = doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : [];
   const phaseIng = {
+    // hydrate = the autolyse/fermentolyse bowl (flour + water; warm with yeast for
+    // express). mix = what's worked in afterward, during develop.
+    hydrate: express
+      ? [{ label: "main bowl", items: [...flourItems, ...yeastItems, ing("Water, warm ~95–100°F", round(v.water))] }]
+      : [{ label: "autolyse bowl", items: [...flourItems, ing("Water", round(v.water))] }],
     mix: express
       ? [
-          { label: "main bowl", items: [...flourItems, ...(doughOilPct > 0 ? [ing("Dough oil", round(v.doughOil))] : [])] },
-          { label: "bloom first · a cup", items: [...yeastItems, ing("Water, warm ~105°F", round(v.water))] },
-          { label: "in last", items: [ing("Salt", round(v.salt, 1))] },
+          ...(potatoItem.length ? [{ label: "work in", items: potatoItem }] : []),
+          { label: "salt in last", items: [ing("Salt", round(v.salt, 1))] },
+          ...(doughOilItem.length ? [{ label: "then the oil", items: doughOilItem }] : []),
         ]
       : [
-          { label: "autolyse bowl", items: [...flourItems, ing("Water", round(v.water))] },
-          { label: "then work in", items: yeastItems },
-          { label: "in last", items: [ing("Salt", round(v.salt, 1))] },
-          ...(doughOilPct > 0 ? [{ label: "drizzle in", items: [ing("Dough oil", round(v.doughOil))] }] : []),
+          { label: "then work in", items: [...yeastItems, ...potatoItem] },
+          { label: "salt in last", items: [ing("Salt", round(v.salt, 1))] },
+          ...(doughOilItem.length ? [{ label: "oil after gluten forms", items: doughOilItem }] : []),
         ],
     ...(v.foldOil > 0 ? { [express ? "bulk" : "laminate"]: [{ items: [ing("Fold oil", round(v.foldOil))] }] } : {}),
     pan: [{ items: [ing("Pan oil", round(v.panOil))] }],
