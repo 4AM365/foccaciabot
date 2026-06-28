@@ -618,7 +618,7 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // Process generator — steps adapt to schedule, lamination, hydration, yeast and
 // toppings. Each step shows its spec as bullets; `why` + `more` reveal on tap.
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato }) {
   const express = schIdx === 0;
   const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
@@ -636,6 +636,12 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   const hot = panOilPct >= 10;
 
   const steps = [];
+
+  if (potato && potato.on) {
+    steps.push({ title: "Cook & rice the potato — ahead of time", spec: `${round(potato.load)}g potato · whole & skin-on · boil or steam to knife-tender (~30–40 min) · peel warm · rice HOT · cool before it goes in`,
+      why: `The potato goes into the dough fully cooked and riced — never raw. Boil or steam it whole and skin-on (skin-on stops it drinking water and throwing off your hydration) until a knife slides into the centre with no resistance, then peel while it's still warm. Rice or food-mill it HOT and in a single pass: you want the cooked cells to separate but stay intact — blitzed in a processor or worked cold they rupture and spill free starch that goes gluey and slackens the dough (McGee). Then cool it to room temperature before mixing in, so it doesn't scald the yeast or warm the dough.`,
+      more: `Boiled potato is ~75–80% water, and that moisture is already counted in the hydration shown here. Trim any green, sprouts or black bruise-spots before cooking — boiling won't remove their bitterness. Work the cooled riced potato into the dough as it develops, after the flour and water have come together.` });
+  }
 
   if (express) {
     steps.push({ title: "Fermentolyse — warm", spec: `ALL flour + all WARM water (95–100°F / 35–38°C) + yeast (${round(sch.yeast * yt.factor, 2)}%) + sugar · rest 20 min · then salt`,
@@ -716,6 +722,7 @@ const PHASE_ORDER = ["mix", "bulk", "cold", "laminate", "pan", "proof", "dimple"
 // carries the step's bullets + "why". Topping-prep steps are intentionally absent
 // — they ride their own topping lanes.
 const STEP_PHASE = {
+  "Cook & rice the potato — ahead of time": "mix",
   "Fermentolyse — warm": "mix",
   "Mix & develop": "mix",
   "Autolyse": "mix",
@@ -1075,7 +1082,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     ing(flourDef.label, round(v.breadFlour)),
     ...(semolinaPct > 0 ? [ing("Semolina", round(v.sem))] : []),
     ...(v.blend > 0 ? [ing("Rice + soy", round(v.blend))] : []),
-    ...(v.potato > 0 ? [ing("Potato, riced", round(v.potato))] : []),
+    ...(v.potato > 0 ? [ing("Potato, cooked & riced", round(v.potato))] : []),
   ];
   const yeastItems = [ing(YEAST_TYPES[yeastType].label, round(v.yeast, 2)), ...(v.sugar > 0 ? [ing("Honey / sugar", round(v.sugar, 1))] : [])];
   const phaseIng = {
@@ -1100,8 +1107,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   };
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato }),
-    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f]);
+  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato } }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, potatoPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f, v.potato]);
   const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato }),
     [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode]);
   // Process steps bucketed onto their timeline phase, so each gantt block shows
