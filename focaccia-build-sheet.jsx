@@ -104,8 +104,8 @@ const BRINE_SALT = 0.8;  // fine salt dissolved into the salamoia
 // Yeast forms and their dosing relative to instant (IDY).
 const YEAST_TYPES = {
   instant: { label: "Instant yeast (IDY)", factor: 1, note: "added dry, straight into the flour" },
-  active:  { label: "Active dry yeast", factor: 1.25, note: "bloom 5–10 min in a little warm water first" },
-  fresh:   { label: "Fresh (cake) yeast", factor: 3, note: "crumble & dissolve in the water first" },
+  active:  { label: "Active dry yeast", factor: 1.25, note: "bloom 5–10 min in a little warm water (~100–110°F / 38–43°C) first" },
+  fresh:   { label: "Fresh (cake) yeast", factor: 3, note: "crumble & dissolve in lukewarm water (~90–100°F / 32–38°C, never hot) first" },
 };
 
 // ---- Fermentation schedules: the "tang / yeastiness" axis -----------------
@@ -370,7 +370,7 @@ const TOPPINGS = [
     prepSteps: ["Strip needles or keep small sprigs", "Press into the dough at dimpling", "Coat with brine oil so they don't scorch"] },
   { id: "tomato", icon: "🍅", label: "Cherry tomatoes", styles: ["flaky", "barese", "sameday"],
     short: "halved, cut-side up in the wells", water: true,
-    prep: "Halve and press cut-side up into the wells at dimpling so they roast in the oil rather than steam. For deeper flavour, smash & roast them first — that concentrates the glutamate and sugars and builds Maillard browning — then add for the 450°F phase, slicked with brine oil so the already-caramelised sugars don't scorch. Either way they're ~95% water and weep into the crumb, so account for that in your hydration (see the tomato panel).",
+    prep: "Bring fridge-cold tomatoes to room temperature first so they don't chill the proofed dough. Halve and press cut-side up into the wells at dimpling so they roast in the oil rather than steam. For deeper flavour, smash & roast them first — that concentrates the glutamate and sugars and builds Maillard browning — then cool to room temp and add for the 450°F phase, slicked with brine oil so the already-caramelised sugars don't scorch. Either way they're ~95% water and weep into the crumb, so account for that in your hydration (see the tomato panel).",
     prepSteps: ["Halve the tomatoes", "Press cut-side up into the oiled wells", "Slick with brine oil before baking"] },
   { id: "passata", icon: "🥫", label: "Tomato sauce (passata)", styles: ["sardenaira", "sfincione", "messinese"],
     short: "cooked sauce spread over the top",
@@ -618,9 +618,14 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // Process generator — steps adapt to schedule, lamination, hydration, yeast and
 // toppings. Each step shows its spec as bullets; `why` + `more` reveal on tap.
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato, waterTempF }) {
   const express = schIdx === 0;
   const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
+  // Dough-water temperature. When the kitchen panel is on, use its DDT-solved
+  // figure; otherwise give the default cool-water range for a controlled ferment.
+  const coolWaterStr = waterTempF
+    ? `~${waterTempF}°F / ${Math.round((waterTempF - 32) * 5 / 9)}°C`
+    : "cool, ~60–70°F / 16–21°C";
   const yt = YEAST_TYPES[yeastType] || YEAST_TYPES.instant;
   const bloom = yeastType === "instant"
     ? ""
@@ -638,8 +643,8 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   const steps = [];
 
   if (potato && potato.on) {
-    steps.push({ title: "Cook & rice the potato — ahead of time", spec: `${round(potato.load)}g potato · whole & skin-on · boil or steam until ~205–210°F / 96–99°C at the centre (knife-tender, ~30–40 min) · peel warm · rice HOT · cool before it goes in`,
-      why: `The potato goes into the dough fully cooked and riced — never raw. "Fully cooked" means the centre hits ~205–210°F / 96–99°C — boiling-hot through, where the starch has fully gelatinised and the cells soften enough to rice smooth; below that the core stays grainy. Boil or steam it whole and skin-on (skin-on stops it drinking water and throwing off your hydration) until a knife slides into the centre with no resistance — or a probe reads that temperature — then peel while it's still warm. Rice or food-mill it HOT and in a single pass: you want the cooked cells to separate but stay intact — blitzed in a processor or worked cold they rupture and spill free starch that goes gluey and slackens the dough (McGee). Then cool it to room temperature before mixing in, so it doesn't scald the yeast or warm the dough.`,
+    steps.push({ title: "Cook & rice the potato — ahead of time", spec: `${round(potato.load)}g potato · whole & skin-on · boil or steam until ~205–210°F / 96–99°C at the centre (knife-tender, ~30–40 min) · peel warm · rice HOT · cool to room temp (≤85°F / 29°C) before it goes in`,
+      why: `The potato goes into the dough fully cooked and riced — never raw. "Fully cooked" means the centre hits ~205–210°F / 96–99°C — boiling-hot through, where the starch has fully gelatinised and the cells soften enough to rice smooth; below that the core stays grainy. Boil or steam it whole and skin-on (skin-on stops it drinking water and throwing off your hydration) until a knife slides into the centre with no resistance — or a probe reads that temperature — then peel while it's still warm. Rice or food-mill it HOT and in a single pass: you want the cooked cells to separate but stay intact — blitzed in a processor or worked cold they rupture and spill free starch that goes gluey and slackens the dough (McGee). Then cool it to room temperature (≤85°F / 29°C — and never above the ${ddt} dough target) before mixing in, so it doesn't scald the yeast or warm the dough.`,
       more: `Boiled potato is ~75–80% water, and that moisture is already counted in the hydration shown here. Trim any green, sprouts or black bruise-spots before cooking — boiling won't remove their bitterness. Work the cooled riced potato into the dough as it develops, after the flour and water have come together.` });
   }
 
@@ -654,8 +659,8 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
       why: `This one warm hour does the long ferment's job — heat plus the elevated yeast drive the gas fast. Keep the bowl covered between folds so the surface doesn't skin. ${folds > 0 ? "Drizzling oil before each fold means the same folds also build the flaky layers — strength and lamination collapsed into the bulk." : "Plain folds just build strength for a classic pillowy crumb."}`,
       more: `Pull it when it's puffy and jiggly with a bubble or two showing — readiness rules, not the clock; give it 15–20 min more if it's sluggish.` });
   } else {
-    steps.push({ title: "Autolyse", spec: "ALL flour + all dough water · mix to shaggy · cover · rest 30–45 min",
-      why: `Mix flour and water to a shaggy mass with no dry flour, cover, and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Cover it so the top can't dry. Hold yeast and salt for now.${bloom}` });
+    steps.push({ title: "Autolyse", spec: `ALL flour + all dough water (${coolWaterStr}) · mix to shaggy · cover · rest 30–45 min`,
+      why: `Mix flour and water to a shaggy mass with no dry flour, cover, and walk away. Every bit of flour hydrates and the flour's own enzymes start reorganizing gluten — extensibility and structure for free, with far less mixing. Cover it so the top can't dry. Hold yeast and salt for now.${bloom} Use ${coolWaterStr} water so the dough finishes near ${ddt} for a controlled cold ferment${waterTempF ? "" : " — set your room temperature in the kitchen panel for an exact DDT mixing-water temp"}.` });
     steps.push({ title: "Mix in yeast + salt; develop", spec: `add yeast, then salt · dough hook · low · 6–8 min · target dough temp ${ddt}${oilSpecNote}`,
       why: `Work in the yeast first, then the salt (added last so it doesn't fight the yeast or over-tighten early). Build a moderate, well-organized matrix — strong enough to trap gas and hold lamination, loose enough to stay extensible. At ${hydration}% it pulls off the hook ${handling}; stop when cohesive, not bone-dry.${oilNote}`,
       more: `Finishing near ${ddt} sets a controlled, even cold ferment rather than a runaway one.` });
@@ -679,12 +684,12 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
     why: `Proof until visibly alive — domed, blistered, wobbling when nudged, a slow-springing poke. Keep it covered so the surface can't skin over: a dry skin resists your dimples, blunts oven spring and bakes leathery (Cauvain, Ch.4/5: prevent skinning; provers run high humidity). Err slightly past full proof; under-proofed focaccia bakes dense and tight.`,
     more: `The pan oil films the top and buys you slack, but once it's puffy use a cover that doesn't touch the dough — an inverted tub, box or second pan — so it won't stick and deflate the bubbles.` });
 
-  steps.push({ title: "Dimple + brine", spec: `oil fingers · press nearly to the pan bottom · brine (≈1:1 water:oil + ${BRINE_SALT}% salt) into the wells`,
-    why: `Oil your fingers and drive them straight down almost to the pan — aggressive dimples make the lunar-landscape surface and set high ridges that crunch against soft valleys (shy dimples just bake out). Whisk the salamoia — roughly equal parts water and oil with the fine salt dissolved in — and spoon it so it pools in the wells; the water steams off and concentrates salt and oil into crisp, seasoned pockets.${toppings.length ? " Add your toppings now — see the next step." : ""}` });
+  steps.push({ title: "Dimple + brine", spec: `oil fingers · press nearly to the pan bottom · brine (≈1:1 warm water:oil + ${BRINE_SALT}% salt) into the wells`,
+    why: `Oil your fingers and drive them straight down almost to the pan — aggressive dimples make the lunar-landscape surface and set high ridges that crunch against soft valleys (shy dimples just bake out). Whisk the salamoia — roughly equal parts oil and warm water (~100°F / 38°C, so the fine salt dissolves) — and spoon it so it pools in the wells; the water steams off and concentrates salt and oil into crisp, seasoned pockets. Warm, not hot — it goes onto proofed dough headed straight for the oven.${toppings.length ? " Add your toppings now — see the next step." : ""}` });
 
   if (tomato && tomato.on && tomato.mode === "roast") {
     steps.push({ title: "Smash & roast the tomatoes — ahead of time", spec: `${round(tomato.load)}g cherry tomatoes · halved · 200°C/400°F until collapsed & jammy`,
-      why: `Halve the tomatoes, toss with oil and salt, and roast until they collapse and caramelise — this concentrates their glutamate and sugars and builds Maillard depth you can't get from raw fruit in a 20-minute bake. Do it while the dough cold-ferments; cool before they touch the dough.`,
+      why: `Halve the tomatoes, toss with oil and salt, and roast until they collapse and caramelise — this concentrates their glutamate and sugars and builds Maillard depth you can't get from raw fruit in a 20-minute bake. Do it while the dough cold-ferments; cool them to room temperature (below ~85°F / 29°C) before they touch the dough.`,
       more: `Roasting drives off a lot of water, but you then spread the concentrated pulp straight onto the dough — so it still wets the crumb. That's already folded into the effective-hydration figure below.` });
   }
 
@@ -1107,8 +1112,8 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   };
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato } }),
-    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, potatoPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f, v.potato]);
+  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato }, waterTempF: envOn ? envAdj.waterTempF : null }),
+    [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, potatoPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f, v.potato, envOn, envAdj]);
   const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato }),
     [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode]);
   // Process steps bucketed onto their timeline phase, so each gantt block shows
