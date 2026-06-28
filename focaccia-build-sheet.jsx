@@ -106,6 +106,7 @@ const BRINE_SALT = 0.8;  // fine salt dissolved into the salamoia
 // reserves shown in the steps.
 const YEAST_TEST_WATER_X = 5;  // warm water for the yeast test = 5× the yeast weight (Cauvain: "reconstituted in five times its own weight of warm water"). lazy: one knob — set to 0.5 for a half-weight slurry if you really want it.
 const SALT_WATER_X = 4;        // water to dissolve the salt for even distribution = 4× salt weight (salt dissolves ~1:2.8, so 4× clears it with margin)
+const FINISH_SALT_PCT = 0.4;   // flaky finishing salt scattered before the bake, as % of flour (nothing is "to taste")
 
 // Yeast forms and their dosing relative to instant (IDY).
 const YEAST_TYPES = {
@@ -222,8 +223,8 @@ const SPECIAL_STYLES = [
           { k: "Crescenza / stracchino", g: bp(f, 130), pct: 130, accent: true, note: "or another young, soft, tangy cheese" },
         ] },
         { title: "Finish", items: [
-          { k: "Olive oil", g: null, pct: null, note: "brushed over the top sheet" },
-          { k: "Flaky salt", g: null, pct: null, note: "scattered before baking" },
+          { k: "Olive oil", g: bp(f, 3), pct: 3, note: "brushed over the top sheet" },
+          { k: "Flaky salt", g: bp(f, 0.4, 1), pct: 0.4, note: "scattered before baking" },
         ] },
       ],
       summary: [
@@ -275,8 +276,8 @@ const SPECIAL_STYLES = [
           { k: "Sugar — to scatter", g: bp(f, 12, 1), pct: 12, accent: true, note: "between the layers and over the top" },
         ] },
         { title: "Finish", items: [
-          { k: "Olive oil", g: null, pct: null, note: "drizzled over before baking" },
-          { k: "Rosemary or anise seeds", g: null, pct: null, note: "optional, traditional" },
+          { k: "Olive oil", g: bp(f, 3), pct: 3, note: "drizzled over before baking" },
+          { k: "Rosemary or anise seeds", g: bp(f, 0.5, 1), pct: 0.5, note: "optional, traditional" },
         ] },
       ],
       summary: [
@@ -323,9 +324,9 @@ const SPECIAL_STYLES = [
           { k: "Salt", g: bp(f, 1, 1), pct: 1 },
         ] },
         { title: "Aromatics & crown", caption: "the unmistakable fugassa perfume", brine: true, items: [
-          { k: "Vanilla + orange & lemon zest", g: null, pct: null, accent: true, note: "a splash of grappa or marsala, traditionally" },
-          { k: "Pearl sugar (granella)", g: null, pct: null, accent: true, note: "scattered on top" },
-          { k: "Almonds", g: null, pct: null, accent: true, note: "whole or sliced, with the sugar" },
+          { k: "Vanilla + citrus zest", g: bp(f, 3), pct: 3, accent: true, note: "1 tsp vanilla + zest of 1 orange & 1 lemon + a splash (~15g) grappa or marsala" },
+          { k: "Pearl sugar (granella)", g: bp(f, 6), pct: 6, accent: true, note: "scattered on top" },
+          { k: "Almonds", g: bp(f, 8), pct: 8, accent: true, note: "whole or sliced, with the sugar" },
         ] },
       ],
       summary: [
@@ -369,52 +370,54 @@ const SPECIAL_BY_ID = Object.fromEntries(SPECIAL_STYLES.map((s) => [s.id, s]));
 // prep detail; the Prep timeline gets its *ordering* and dependencies from
 // TOPPING_PLAN below. `water:true` flags a topping that weeps moisture into
 // the crumb (cherry tomatoes) so it can be folded into effective hydration.
+// `amt` = baseline quantity as a baker's % of flour, so it scales with the batch
+// (tomato is driven by its own slider instead). Nothing is "to taste".
 const TOPPINGS = [
-  { id: "rosemary", icon: "🌿", label: "Rosemary", styles: ["flaky", "genovese", "romana", "barese", "sameday", "schiacciata", "pizzabianca", "fougasse"],
+  { id: "rosemary", icon: "🌿", label: "Rosemary", amt: 0.6, styles: ["flaky", "genovese", "romana", "barese", "sameday", "schiacciata", "pizzabianca", "fougasse"],
     short: "needles pressed in & oiled at dimpling",
     prep: "Strip the needles (or keep small sprigs). Press them into the dough at dimpling and coat with the brine oil so they don't scorch — woody herbs burn fast on top of a 230–260°C bake.",
     prepSteps: ["Strip needles or keep small sprigs", "Press into the dough at dimpling", "Coat with brine oil so they don't scorch"] },
-  { id: "tomato", icon: "🍅", label: "Cherry tomatoes", styles: ["flaky", "barese", "sameday"],
+  { id: "tomato", icon: "🍅", label: "Cherry tomatoes", amt: 20, slider: true, styles: ["flaky", "barese", "sameday"],
     short: "halved, cut-side up in the wells", water: true,
     prep: "Bring fridge-cold tomatoes to room temperature first so they don't chill the proofed dough. Halve and press cut-side up into the wells at dimpling so they roast in the oil rather than steam. For deeper flavour, smash & roast them first — that concentrates the glutamate and sugars and builds Maillard browning — then cool to room temp and add for the 450°F phase, slicked with brine oil so the already-caramelised sugars don't scorch. Either way they're ~95% water and weep into the crumb, so account for that in your hydration (see the tomato panel).",
     prepSteps: ["Halve the tomatoes", "Press cut-side up into the oiled wells", "Slick with brine oil before baking"] },
-  { id: "passata", icon: "🥫", label: "Tomato sauce (passata)", styles: ["sardenaira", "sfincione", "messinese"],
+  { id: "passata", icon: "🥫", label: "Tomato sauce (passata)", amt: 30, styles: ["sardenaira", "sfincione", "messinese"],
     short: "cooked sauce spread over the top",
     prep: "The defining layer of the sauce focacce: simmer passata with garlic and good oil (slow-cook sliced onion into it for sfincione) until thick and jammy, season, and cool. Spread it over the dimpled dough before the olives, anchovy, capers and cheese — it's the base everything sits in, not a garnish.",
     prepSteps: ["Simmer passata with garlic + oil (onion for sfincione) until thick", "Season and cool", "Spread over the dimpled dough before the other toppings"] },
-  { id: "olives", icon: "🫒", label: "Olives", styles: ["genovese", "barese", "sardenaira", "fougasse"],
+  { id: "olives", icon: "🫒", label: "Olives", amt: 12, styles: ["genovese", "barese", "sardenaira", "fougasse"],
     short: "pitted, patted dry, pressed in",
     prep: "Use good brined olives (Taggiasca, Cerignola), pitted and patted dry so surface brine doesn't make wet spots. Press them into the dough at dimpling.",
     prepSteps: ["Pit good brined olives (Taggiasca / Cerignola)", "Pat dry so brine doesn't wet the dough", "Press in at dimpling"] },
-  { id: "anchovy", icon: "🐟", label: "Anchovies", styles: ["sardenaira", "sfincione", "messinese"],
+  { id: "anchovy", icon: "🐟", label: "Anchovies", amt: 5, styles: ["sardenaira", "sfincione", "messinese"],
     short: "rinsed, boned, laid in the sauce",
     prep: "Salt-packed anchovies are best: rinse off the salt, fillet and bone them (oil-packed work too — just pat off the excess). Lay them into the tomato/onion sauce or straight onto the oiled dough, where they dissolve and season the whole slab rather than sitting as fish on top.",
     prepSteps: ["Rinse salt-packed fillets (or pat oil-packed dry)", "Bone and split into fillets", "Lay into the sauce / on the dough before baking"] },
-  { id: "capers", icon: "🧂", label: "Capers", styles: ["sardenaira"],
+  { id: "capers", icon: "🧂", label: "Capers", amt: 2, styles: ["sardenaira"],
     short: "rinsed, scattered before baking",
     prep: "Rinse salt- or brine-packed capers to tame the punch, pat them dry, and scatter over the sauce before baking — classic in sardenaira alongside the olives and anchovy.",
     prepSteps: ["Rinse off the packing salt / brine", "Pat dry", "Scatter over the sauce before baking"] },
-  { id: "onion", icon: "🧅", label: "Red onion", styles: ["barese", "sameday", "sfincione"],
+  { id: "onion", icon: "🧅", label: "Red onion", amt: 15, styles: ["barese", "sameday", "sfincione"],
     short: "thin, oiled, scattered at dimpling",
     prep: "Slice thin, then toss with a little oil and a pinch of salt to soften and shield from burning (a 10-min cold-water soak tames the bite). Scatter at dimpling — thin slices crisp, thick ones steam. For sfincione, slow-cook them down into the sauce first.",
     prepSteps: ["Slice thin", "(optional) 10-min cold-water soak to tame the bite", "Toss with oil + a pinch of salt", "Scatter at dimpling"] },
-  { id: "cheese", icon: "🧀", label: "Soft cheese", styles: ["sfincione", "messinese"],
+  { id: "cheese", icon: "🧀", label: "Soft cheese", amt: 18, styles: ["sfincione", "messinese"],
     short: "cubed/torn, tucked in late",
     prep: "Caciocavallo or tuma for the Sicilian styles (stracchino if you're chasing a Recco-style ooze). Cube or tear it and tuck it in toward the end of the bake so it melts through without weeping oil and scorching.",
     prepSteps: ["Cube or tear the cheese", "Add for the cooler second bake phase", "Let it melt — don't let it brown hard"] },
-  { id: "breadcrumbs", icon: "🍞", label: "Toasted breadcrumbs", styles: ["sfincione"],
+  { id: "breadcrumbs", icon: "🍞", label: "Toasted breadcrumbs", amt: 8, styles: ["sfincione"],
     short: "pangrattato showered on top",
     prep: "The sfincione signature: toast coarse breadcrumbs in olive oil until golden, then shower them over the sauced top (and again after baking) for a savoury, crunchy crust in place of cheese on top.",
     prepSteps: ["Toast coarse crumbs in olive oil till golden", "Shower over the sauced top before baking", "Add a second handful after the bake"] },
-  { id: "escarole", icon: "🥬", label: "Escarole / endive", styles: ["messinese"],
+  { id: "escarole", icon: "🥬", label: "Escarole / endive", amt: 20, styles: ["messinese"],
     short: "wilted, squeezed dry, layered",
     prep: "Curly endive or escarole (scarola) for focaccia messinese: blanch or wilt it, squeeze it very dry, and layer it with the cheese and anchovy. Wet greens steam the crumb, so the squeeze is the whole game.",
     prepSteps: ["Wilt or blanch the greens", "Squeeze very dry", "Layer with cheese and anchovy"] },
-  { id: "garlic", icon: "🧄", label: "Garlic (in the oil)", styles: ["flaky", "genovese", "romana", "barese", "sameday", "sardenaira", "sfincione"],
+  { id: "garlic", icon: "🧄", label: "Garlic (in the oil)", amt: 2, styles: ["flaky", "genovese", "romana", "barese", "sameday", "sardenaira", "sfincione"],
     short: "infused into the oil, never raw on top",
     prep: "Don't scatter raw garlic on top — it burns bitter. Warm crushed cloves gently in the pan/brine oil to infuse, then lift them out; brush the infused oil over before baking and again, warm, after.",
     prepSteps: ["Crush the cloves", "Warm gently in the pan/brine oil to infuse", "Lift the cloves out", "Brush the infused oil on before and after baking"] },
-  { id: "oregano", icon: "🌱", label: "Oregano (dried)", styles: ["barese", "sardenaira", "sfincione"],
+  { id: "oregano", icon: "🌱", label: "Oregano (dried)", amt: 0.4, styles: ["barese", "sardenaira", "sfincione"],
     short: "dried, scattered with the tomatoes",
     prep: "Dried oregano scattered with the tomatoes at dimpling — classic Barese and Sicilian. Dried stands up to oven heat; fresh oregano scorches.",
     prepSteps: ["Use dried, not fresh", "Scatter with the tomatoes at dimpling"] },
@@ -624,7 +627,7 @@ function Dial({ label, value, min, max, step, onChange, readout, lo, hi, stops, 
 // Process generator — steps adapt to schedule, lamination, hydration, yeast and
 // toppings. Each step shows its spec as bullets; `why` + `more` reveal on tap.
 // ---------------------------------------------------------------------------
-function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato, waterTempF, proof, water }) {
+function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina, yeastType, toppings, tomato, potato, waterTempF, proof, water, finishSaltG }) {
   const express = schIdx === 0;
   const ddt = express ? "26–27°C / 79–81°F" : "24–25°C / 75–77°F";
   // Dough-water temperature. When the kitchen panel is on, use its DDT-solved
@@ -723,13 +726,13 @@ function buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, sem
   }
 
   if (toppings.length) {
-    const lines = toppings.map((t) => `${t.icon} ${t.label} — ${t.prep}`).join("\n");
+    const lines = toppings.map((t) => `${t.icon} ${t.label} — ${t.g}g (${t.amt}% of flour) — ${t.prep}`).join("\n");
     const tomatoNote = tomato && tomato.on
       ? `\n\nNote on the tomatoes: at ${tomato.pct}% of flour (${round(tomato.load)}g), ${tomato.mode === "roast" ? "smashed & roasted" : "raw halves"} weep ≈${round(tomato.water)}g of water into the crumb — that pushes effective hydration from ${hydration}% to ≈${round(tomato.eff)}%. If you want to hold the ${hydration}% crumb, pull the dough water back to ≈${round(tomato.suggested)}% (the tomato panel up top does the math live).`
       : "";
-    steps.push({ title: "Top it", spec: toppings.map((t) => t.label).join(" · "),
+    steps.push({ title: "Top it", spec: toppings.map((t) => `${t.label} ${t.g}g`).join(" · "),
       why: lines + tomatoNote,
-      more: "Hardy aromatics (rosemary) go on pressed-in and oiled so they don't scorch; finish everything with flaky salt. Anything sugary or already-roasted is happiest added for the cooler second phase." });
+      more: `Hardy aromatics (rosemary) go on pressed-in and oiled so they don't scorch; finish with ${finishSaltG}g flaky salt (${FINISH_SALT_PCT}% of flour). Anything sugary or already-roasted is happiest added for the cooler second phase. Amounts are starting points that scale with the batch — nudge up or down to preference once you know the style.` });
   }
 
   steps.push({ title: "Bake — hot, dry, low rack", spec: `fully preheated · lower third (or on a steel) · 500°F/260°C · 8 min → 450°F/232°C · ${hot ? "13–16" : "12–15"} min`,
@@ -770,6 +773,7 @@ const STEP_PHASE = {
   "Pan it · let it relax": "pan",
   "Final proof — covered": "proof",
   "Dimple + brine": "dimple",
+  "Top it": "dimple",
   "Bake — hot, dry, low rack": "bake",
   "Cool — out of the pan": "cool",
 };
@@ -901,7 +905,7 @@ function TimeGraph({ phases, spine, tracks, phaseIng, stepsByPhase, C, accent })
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px" }}>
                             {grp.items.map((it) => (
                               <span key={gi + ":" + it.k} style={{ fontSize: 12, color: C.ink, whiteSpace: "nowrap" }}>
-                                {it.k} <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: accent }}>{it.g != null ? `${it.g}g` : "to taste"}</span>
+                                {it.k} <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: accent }}>{it.g != null ? `${it.g}g` : "—"}</span>
                               </span>
                             ))}
                           </div>
@@ -1019,7 +1023,6 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const toggleTopping = (id) => setToppingSel((t) => ({ ...t, [id]: !t[id] }));
   const activeStyle = boundStyle || "custom";
   const freestyleNearest = (!boundStyle && !special) ? solved.style : null;
-  const selectedToppings = TOPPINGS.filter((t) => toppingSel[t.id]);
 
   const f = Math.max(0, Number(flour) || 0);
   const sch = SCHEDULES[schIdx];
@@ -1034,6 +1037,11 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
   const suggestedHyd = Math.max(0, hydration - tomatoWaterPct); // dial here to hold target
   const tomato = { on: tomatoOn, mode: tomatoMode, pct: tomatoPct, load: tomatoLoad,
     water: tomatoWater, eff: effHydration, suggested: suggestedHyd };
+
+  // Selected toppings, each with its gram weight (baker's % of flour; the tomato
+  // tracks its own slider). Nothing is "to taste".
+  const selectedToppings = TOPPINGS.filter((t) => toppingSel[t.id])
+    .map((t) => ({ ...t, g: t.id === "tomato" ? Math.round(tomatoLoad) : round(f * (t.amt || 0) / 100, t.amt < 1 ? 1 : 0) }));
 
   // Kitchen-environment recalibration. Room temperature is entered in °F or °C
   // (converted to °F for the science). Humidity comes from the ZIP/day fetch but
@@ -1165,12 +1173,12 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     pan: [{ items: [ing("Pan oil", round(v.panOil))] }],
     dimple: [
       { label: "salamoia · a cup", items: [ing("Water", round(v.brineWater)), ing("Olive oil", round(v.brineOil)), ing("Fine salt", round(v.brineSalt, 1))] },
-      { label: "to finish", items: [ing("Flaky salt", null)] },
+      { label: "to finish", items: [ing("Flaky salt", round(f * FINISH_SALT_PCT / 100, 1))] },
     ],
   };
 
   const perPan = twoPans ? v.doughWeight / 2 : v.doughWeight;
-  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato }, waterTempF: envOn ? envAdj.waterTempF : null, proof: doProof, water: waterPlan }),
+  const dialSteps = useMemo(() => buildSteps({ sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolina: semolinaPct > 0, yeastType, toppings: selectedToppings, tomato, potato: { on: potatoPct > 0, load: v.potato }, waterTempF: envOn ? envAdj.waterTempF : null, proof: doProof, water: waterPlan, finishSaltG: round(f * FINISH_SALT_PCT / 100, 1) }),
     [sch, schIdx, folds, hydration, panOilPct, doughOilPct, semolinaPct, potatoPct, yeastType, toppingSel, tomatoOn, tomatoMode, tomatoPct, f, v.potato, envOn, envAdj, doProof, waterPlan]);
   const timeline = useMemo(() => buildTimeline({ sch, schIdx, folds, yeastType, toppings: selectedToppings, tomato, proof: doProof }),
     [schIdx, folds, yeastType, toppingSel, tomatoOn, tomatoMode, doProof]);
@@ -1246,14 +1254,14 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
     if (groups) {
       groups.forEach((g) => {
         L.push(`  ${g.title}${g.caption ? ` — ${g.caption}` : ""}`);
-        g.items.forEach((it) => L.push(`    ${it.k} … ${it.g != null ? `${it.g} g` : "to taste"}`));
+        g.items.forEach((it) => L.push(`    ${it.k} … ${it.g != null ? `${it.g} g` : "—"}`));
       });
     } else {
       // Dial recipes list ingredients per mixing container on the gantt.
       Object.values(phaseIng).forEach((blocks) => {
         blocks.forEach((b) => {
           if (b.label) L.push(`  ${b.label}`);
-          b.items.forEach((it) => L.push(`    ${it.k} … ${it.g != null ? `${it.g} g` : "to taste"}`));
+          b.items.forEach((it) => L.push(`    ${it.k} … ${it.g != null ? `${it.g} g` : "—"}`));
         });
       });
     }
@@ -1702,7 +1710,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
                   <span style={{ lineHeight: 1.2, flex: 1 }}>
                     <span style={{ fontWeight: 600, fontSize: 14.5 }}>{t.icon} {t.label}</span>
                     <span style={{ display: "block", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, fontWeight: 600, color: on ? C.onAccent : badgeCol, opacity: on ? 0.85 : 1, letterSpacing: 0.3 }}>
-                      {trad ? "✓ " : ""}{badge}
+                      {trad ? "✓ " : ""}{badge} · {t.id === "tomato" ? "slider" : `${round(f * t.amt / 100, t.amt < 1 ? 1 : 0)}g`}
                     </span>
                   </span>
                 </button>
@@ -1795,7 +1803,7 @@ export default function FocacciaBuildSheet({ goldmemberSrc = "/static/goldmember
                         <span style={{ fontSize: 13, color: C.inkSoft }}> g</span>
                       </>
                     ) : (
-                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: C.inkSoft }}>{r.note ? "to taste" : "—"}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: C.inkSoft }}>—</span>
                     )}
                   </span>
                 </div>
